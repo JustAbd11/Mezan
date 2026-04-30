@@ -6,7 +6,6 @@
     <title>نظام تعديل الميزانية</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.4/dist/pizzip.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/docxtemplater@3.37.11/build/docxtemplater.js"></script>
     <script src="https://unpkg.com/docx@7.8.2/build/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -259,24 +258,40 @@
                 if (ext === 'docx') {
                     try {
                         const zip = new PizZip(content);
-                        const doc = new window.docxtemplater(zip, {
-                            paragraphLoop: true,
-                            linebreaks: true,
-                        });
-
-                        // استخراج النص
-                        extractedText = doc.getFullText();
-                        wordContent = zip; // حفظ المحتوى الأصلي
                         
-                        console.log('✅ تم استخراج النص:', extractedText.substring(0, 200));
+                        // قراءة document.xml مباشرة
+                        const xml = zip.files["word/document.xml"].asText();
+                        
+                        // استخراج النصوص من XML
+                        const textRegex = /<w:t[^>]*>([^<]+)<\/w:t>/g;
+                        const matches = xml.matchAll(textRegex);
+                        
+                        const texts = [];
+                        for (const match of matches) {
+                            texts.push(match[1]);
+                        }
+                        
+                        extractedText = texts.join(' ');
+                        wordContent = zip;
+                        
+                        console.log('✅ تم استخراج النص بنجاح');
+                        console.log('عدد الأحرف:', extractedText.length);
+                        console.log('أول 200 حرف:', extractedText.substring(0, 200));
+                        
                     } catch (error) {
-                        console.error('خطأ في قراءة Word:', error);
-                        extractedText = 'خطأ في قراءة الملف';
+                        console.error('❌ خطأ في قراءة Word:', error);
+                        extractedText = 'خطأ في قراءة الملف - الرجاء التأكد من صيغة الملف';
                     }
                 } else if (ext === 'xlsx') {
-                    const workbook = XLSX.read(content, {type: 'array'});
-                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                    extractedText = XLSX.utils.sheet_to_txt(firstSheet);
+                    try {
+                        const workbook = XLSX.read(content, {type: 'array'});
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        extractedText = XLSX.utils.sheet_to_txt(firstSheet);
+                        console.log('✅ تم قراءة Excel بنجاح');
+                    } catch (error) {
+                        console.error('❌ خطأ في قراءة Excel:', error);
+                        extractedText = 'خطأ في قراءة الملف';
+                    }
                 }
 
                 analyzeText();
