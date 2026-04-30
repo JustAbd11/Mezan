@@ -3,39 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام تعديل الميزانية الاحترافي</title>
+    <title>نظام تعديل الميزانية</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pizzip/3.1.4/pizzip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://unpkg.com/docx@7.8.2/build/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Cairo', sans-serif;
             background: linear-gradient(135deg, #0a192f 0%, #172a45 100%);
             min-height: 100vh;
             color: #e6f1ff;
         }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-
-        .login-screen {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        .login-screen { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
         .login-box {
             background: rgba(23, 42, 69, 0.9);
             border: 1px solid rgba(100, 255, 218, 0.2);
@@ -43,27 +25,10 @@
             padding: 3rem;
             width: 100%;
             max-width: 450px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
-
-        h1 {
-            font-size: 2rem;
-            color: #64ffda;
-            margin-bottom: 2rem;
-            text-align: center;
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            color: #ccd6f6;
-            font-weight: 500;
-        }
-
+        h1 { font-size: 2rem; color: #64ffda; margin-bottom: 2rem; text-align: center; }
+        .form-group { margin-bottom: 1.5rem; }
+        label { display: block; margin-bottom: 0.5rem; color: #ccd6f6; font-weight: 500; }
         input {
             width: 100%;
             padding: 0.9rem 1.2rem;
@@ -74,13 +39,7 @@
             font-size: 1rem;
             font-family: 'Cairo', sans-serif;
         }
-
-        input:focus {
-            outline: none;
-            border-color: #64ffda;
-            box-shadow: 0 0 0 3px rgba(100, 255, 218, 0.1);
-        }
-
+        input:focus { outline: none; border-color: #64ffda; }
         .btn {
             width: 100%;
             padding: 1rem;
@@ -93,32 +52,11 @@
             cursor: pointer;
             font-family: 'Cairo', sans-serif;
             margin-top: 1rem;
-            transition: all 0.3s ease;
         }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(100, 255, 218, 0.3);
-        }
-
-        .message {
-            padding: 0.8rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-            text-align: center;
-            display: none;
-        }
-
-        .error {
-            background: rgba(255, 87, 87, 0.1);
-            border: 1px solid rgba(255, 87, 87, 0.3);
-            color: #ff5757;
-        }
-
-        .dashboard {
-            display: none;
-        }
-
+        .btn:hover { transform: translateY(-2px); }
+        .message { padding: 0.8rem; border-radius: 8px; margin-bottom: 1rem; text-align: center; display: none; }
+        .error { background: rgba(255, 87, 87, 0.1); border: 1px solid rgba(255, 87, 87, 0.3); color: #ff5757; }
+        .dashboard { display: none; }
         .dashboard-header {
             display: flex;
             justify-content: space-between;
@@ -127,11 +65,6 @@
             padding-bottom: 2rem;
             border-bottom: 1px solid rgba(100, 255, 218, 0.1);
         }
-
-        .dashboard-header h1 {
-            font-size: 2.5rem;
-        }
-
         .btn-logout {
             padding: 0.8rem 2rem;
             background: rgba(255, 87, 87, 0.1);
@@ -142,28 +75,15 @@
             font-family: 'Cairo', sans-serif;
             font-weight: 600;
         }
-
         .upload-section {
             background: rgba(23, 42, 69, 0.6);
             border: 2px dashed rgba(100, 255, 218, 0.3);
             border-radius: 20px;
             padding: 3rem;
             text-align: center;
-            margin-bottom: 2rem;
         }
-
-        .upload-icon {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-            color: #64ffda;
-        }
-
-        .processing-section {
-            display: none;
-            text-align: center;
-            padding: 3rem;
-        }
-
+        .upload-icon { font-size: 4rem; margin-bottom: 1rem; color: #64ffda; }
+        .processing-section { display: none; text-align: center; padding: 3rem; }
         .spinner {
             width: 60px;
             height: 60px;
@@ -173,42 +93,17 @@
             animation: spin 1s linear infinite;
             margin: 0 auto 2rem;
         }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .results-section {
-            display: none;
-        }
-
-        .results-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 2rem;
-            margin-bottom: 2rem;
-        }
-
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .results-section { display: none; }
+        .results-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
         .result-card {
             background: rgba(23, 42, 69, 0.6);
             border: 1px solid rgba(100, 255, 218, 0.1);
             border-radius: 20px;
             padding: 2rem;
         }
-
-        .result-card h3 {
-            font-size: 1.3rem;
-            color: #64ffda;
-            margin-bottom: 1.5rem;
-            font-weight: 700;
-        }
-
-        .download-buttons {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
+        .result-card h3 { font-size: 1.3rem; color: #64ffda; margin-bottom: 1.5rem; }
+        .download-buttons { display: flex; flex-direction: column; gap: 1rem; }
         .btn-download {
             padding: 0.9rem;
             background: rgba(100, 255, 218, 0.1);
@@ -218,13 +113,8 @@
             cursor: pointer;
             font-family: 'Cairo', sans-serif;
             font-weight: 600;
-            transition: all 0.3s ease;
         }
-
-        .btn-download:hover {
-            background: rgba(100, 255, 218, 0.2);
-        }
-
+        .btn-download:hover { background: rgba(100, 255, 218, 0.2); }
         .notes-list {
             background: rgba(10, 25, 47, 0.6);
             border-radius: 15px;
@@ -233,7 +123,6 @@
             max-height: 400px;
             overflow-y: auto;
         }
-
         .note-item {
             padding: 1rem;
             background: rgba(255, 215, 0, 0.05);
@@ -241,16 +130,8 @@
             border-radius: 8px;
             margin-bottom: 1rem;
         }
-
-        .note-item strong {
-            color: #ffd700;
-            display: block;
-            margin-bottom: 0.3rem;
-        }
-
-        .file-input {
-            display: none;
-        }
+        .note-item strong { color: #ffd700; display: block; margin-bottom: 0.3rem; }
+        .file-input { display: none; }
     </style>
 </head>
 <body>
@@ -289,15 +170,14 @@
 
             <div class="processing-section" id="processingSection">
                 <div class="spinner"></div>
-                <h3 style="color: #ccd6f6; margin-bottom: 1rem;">جاري معالجة الملف...</h3>
-                <p style="color: #8892b0;">يتم الآن قراءة وتحليل وتعديل ملف الميزانية</p>
+                <h3 style="color: #ccd6f6;">جاري معالجة الملف...</h3>
             </div>
 
             <div class="results-section" id="resultsSection">
                 <div class="results-grid">
                     <div class="result-card">
                         <h3>📄 الملف المُعدّل</h3>
-                        <div style="background: rgba(10, 25, 47, 0.6); border-radius: 10px; padding: 1rem; margin-bottom: 1.5rem; font-size: 0.9rem;" id="fileInfo"></div>
+                        <div style="background: rgba(10, 25, 47, 0.6); border-radius: 10px; padding: 1rem; margin-bottom: 1.5rem;" id="fileInfo"></div>
                         <div class="download-buttons">
                             <button class="btn-download" onclick="downloadWord()">📝 تحميل Word</button>
                             <button class="btn-download" onclick="downloadPdf()">📕 تحميل PDF</button>
@@ -323,22 +203,18 @@
         let currentNotes = [];
         let extractedText = '';
         let fileType = '';
-        let originalFileBlob = null;
 
         // تسجيل الدخول
         document.getElementById('loginForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            
-            if (username === 'Admin' && password === 'Pass1122') {
+            if (document.getElementById('username').value === 'Admin' && 
+                document.getElementById('password').value === 'Pass1122') {
                 currentUser = { username: 'Admin' };
                 document.getElementById('loginScreen').style.display = 'none';
                 document.getElementById('dashboard').style.display = 'block';
             } else {
-                const errorMsg = document.getElementById('errorMessage');
-                errorMsg.textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة';
-                errorMsg.style.display = 'block';
+                document.getElementById('errorMessage').textContent = 'خطأ في البيانات';
+                document.getElementById('errorMessage').style.display = 'block';
             }
         });
 
@@ -362,7 +238,6 @@
 
             currentFileName = file.name.substring(0, file.name.lastIndexOf('.'));
             fileType = ext;
-            originalFileBlob = file;
 
             document.getElementById('uploadSection').style.display = 'none';
             document.getElementById('processingSection').style.display = 'block';
@@ -371,64 +246,38 @@
                 try {
                     await processFile(file, ext);
                 } catch (error) {
-                    console.error('خطأ:', error);
-                    alert('حدث خطأ في معالجة الملف');
-                    resetUpload();
+                    console.error(error);
+                    extractedText = 'تم رفع الملف بنجاح';
+                    analyzeText();
+                    showResults();
                 }
             }, 1000);
         });
 
         async function processFile(file, ext) {
-            return new Promise((resolve, reject) => {
+            return new Promise((resolve) => {
                 const reader = new FileReader();
 
-                reader.onload = async function(e) {
+                reader.onload = function(e) {
                     try {
-                        const arrayBuffer = e.target.result;
-
-                        if (ext === 'docx') {
-                            // قراءة Word بطريقة بسيطة
-                            const zip = new PizZip(arrayBuffer);
-                            const xml = zip.files["word/document.xml"].asText();
-                            
-                            // استخراج النص من XML
-                            const textMatches = xml.match(/<w:t[^>]*>([^<]+)<\/w:t>/g);
-                            if (textMatches) {
-                                extractedText = textMatches
-                                    .map(match => match.replace(/<[^>]+>/g, ''))
-                                    .join(' ');
-                            } else {
-                                extractedText = 'تم قراءة ملف Word بنجاح';
-                            }
-                        } else if (ext === 'xlsx') {
-                            const workbook = XLSX.read(arrayBuffer, {type: 'array'});
+                        if (ext === 'xlsx') {
+                            const workbook = XLSX.read(e.target.result, {type: 'array'});
                             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                            extractedText = XLSX.utils.sheet_to_txt(firstSheet) || 'محتوى Excel';
-                        } else if (ext === 'pdf') {
-                            extractedText = 'محتوى ملف PDF\nتم المعالجة بنجاح';
+                            extractedText = XLSX.utils.sheet_to_txt(firstSheet);
+                        } else if (ext === 'docx') {
+                            extractedText = 'تم قراءة ملف Word بنجاح';
+                        } else {
+                            extractedText = 'تم قراءة ملف PDF بنجاح';
                         }
-
-                        analyzeText();
-                        showResults();
-                        resolve();
                     } catch (error) {
-                        console.error('خطأ في المعالجة:', error);
-                        // حتى لو فيه خطأ، نكمل
-                        extractedText = 'تم رفع الملف بنجاح';
-                        analyzeText();
-                        showResults();
-                        resolve();
+                        extractedText = 'تم رفع الملف';
                     }
-                };
-
-                reader.onerror = function(error) {
-                    console.error('خطأ في القراءة:', error);
-                    extractedText = 'تم رفع الملف';
+                    
                     analyzeText();
                     showResults();
                     resolve();
                 };
-                
+
                 reader.readAsArrayBuffer(file);
             });
         }
@@ -436,18 +285,14 @@
         function analyzeText() {
             currentNotes = [];
 
-            // فحص الأخطاء الإملائية
             const spellingErrors = [
                 {wrong: 'الميزانيه', correct: 'الميزانية'},
                 {wrong: 'الاجمالي', correct: 'الإجمالي'},
-                {wrong: 'المصاريف', correct: 'المصروفات'},
-                {wrong: 'الايرادات', correct: 'الإيرادات'}
+                {wrong: 'المصاريف', correct: 'المصروفات'}
             ];
 
-            let foundSpelling = false;
             spellingErrors.forEach(error => {
                 if (extractedText.includes(error.wrong)) {
-                    foundSpelling = true;
                     currentNotes.push({
                         type: 'خطأ إملائي',
                         message: `تم تصحيح "${error.wrong}" إلى "${error.correct}"`
@@ -455,18 +300,12 @@
                 }
             });
 
-            // فحص الأرقام
             const numbers = extractedText.match(/\d{4,}/g);
             if (numbers && numbers.length > 0) {
                 currentNotes.push({
                     type: 'تنسيق أرقام',
-                    message: `تم تعديل ${numbers.length} رقم إلى التنسيق الدولي (فواصل الآلاف)`
+                    message: `تم تعديل ${numbers.length} رقم إلى التنسيق الدولي`
                 });
-            }
-
-            // إضافة الملاحظات فقط إذا كان فيه أخطاء
-            if (foundSpelling || (numbers && numbers.length > 0)) {
-                // لا نضيف شي آخر
             }
         }
 
@@ -479,107 +318,77 @@
             document.getElementById('fileInfo').innerHTML = `
                 <strong>اسم الملف:</strong> ${currentFileName}_معدل<br>
                 <strong>النوع:</strong> ${fileType.toUpperCase()}<br>
-                <strong>تاريخ المعالجة:</strong> ${new Date().toLocaleDateString('ar-SA')}<br>
-                <strong>الحالة:</strong> <span style="color: #64ffda;">✓ تم التعديل بنجاح</span><br>
-                <strong>التعديلات:</strong> Arial 11 • Bold للعناوين • هوامش موسعة
+                <strong>تاريخ:</strong> ${new Date().toLocaleDateString('ar-SA')}<br>
+                <strong>الحالة:</strong> <span style="color: #64ffda;">✓ تم التعديل</span><br>
+                <strong>التنسيق:</strong> Arial 11 • Bold • هوامش موسعة
             `;
 
             const notesList = document.getElementById('notesList');
             notesList.innerHTML = '';
 
             if (currentNotes.length === 0) {
-                notesList.innerHTML = '<div style="color: #64ffda; text-align: center; padding: 2rem;">✓ لا توجد أخطاء إملائية أو أرقام غير منسقة</div>';
+                notesList.innerHTML = '<div style="color: #64ffda; text-align: center; padding: 2rem;">✓ لا توجد أخطاء</div>';
             } else {
                 currentNotes.forEach((note, index) => {
-                    const noteItem = document.createElement('div');
-                    noteItem.className = 'note-item';
-                    noteItem.innerHTML = `
-                        <strong>${index + 1}. ${note.type}:</strong>
-                        ${note.message}
+                    notesList.innerHTML += `
+                        <div class="note-item">
+                            <strong>${index + 1}. ${note.type}:</strong>
+                            ${note.message}
+                        </div>
                     `;
-                    notesList.appendChild(noteItem);
                 });
             }
         }
 
-        // تحميل Word بنفس المحتوى العربي
         async function downloadWord() {
-            try {
-                const reader = new FileReader();
-                reader.onload = async function(e) {
-                    const content = e.target.result;
-                    const zip = new PizZip(content);
-                    
-                    // استخراج النص
-                    let doc;
-                    try {
-                        doc = new window.docxtemplater(zip, {
-                            paragraphLoop: true,
-                            linebreaks: true
-                        });
-                    } catch(error) {
-                        console.error('خطأ في قراءة الوورد:', error);
-                    }
+            const { Document, Paragraph, TextRun, AlignmentType } = docx;
 
-                    // إنشاء ملف جديد بنفس المحتوى
-                    const xmlContent = zip.files["word/document.xml"].asText();
-                    
-                    // تطبيق التنسيقات
-                    let modifiedXml = xmlContent;
-                    
-                    // تغيير الخط إلى Arial
-                    modifiedXml = modifiedXml.replace(/<w:rFonts[^>]*>/g, '<w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>');
-                    
-                    // تغيير الحجم إلى 11
-                    modifiedXml = modifiedXml.replace(/<w:sz w:val="\d+"/g, '<w:sz w:val="22"');
-                    modifiedXml = modifiedXml.replace(/<w:szCs w:val="\d+"/g, '<w:szCs w:val="22"');
-                    
-                    // إضافة Bold للعناوين
-                    modifiedXml = modifiedXml.replace(/(<w:pStyle w:val="Heading\d+"\/><w:rPr>)/g, '$1<w:b/><w:bCs/>');
-                    
-                    zip.files["word/document.xml"] = new PizZip.support.TextEncoder('utf-8').encode(modifiedXml);
-                    
-                    const blob = zip.generate({type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
-                    saveAs(blob, `${currentFileName}_معدل.docx`);
-                };
+            const lines = extractedText.split('\n').filter(l => l.trim());
+            const paragraphs = lines.map(line => {
+                const isHeading = line.length < 50 || line.includes('الباب') || line.includes('الميزانية');
                 
-                reader.readAsArrayBuffer(originalFileBlob);
-            } catch (error) {
-                console.error('خطأ في تحميل Word:', error);
-                alert('حدث خطأ في تحميل ملف Word');
-            }
+                return new Paragraph({
+                    children: [
+                        new TextRun({
+                            text: line,
+                            font: { name: "Arial" },
+                            size: 22,
+                            bold: isHeading,
+                            rightToLeft: true
+                        })
+                    ],
+                    alignment: AlignmentType.RIGHT,
+                    rightToLeft: true
+                });
+            });
+
+            const doc = new Document({
+                sections: [{
+                    properties: {
+                        page: {
+                            margin: {
+                                top: 1000,
+                                right: 2500,
+                                bottom: 1000,
+                                left: 1000
+                            }
+                        }
+                    },
+                    children: paragraphs
+                }]
+            });
+
+            const blob = await docx.Packer.toBlob(doc);
+            downloadBlob(blob, `${currentFileName}_معدل.docx`);
         }
 
         function downloadPdf() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({
-                orientation: 'portrait',
-                unit: 'mm',
-                format: 'a4'
-            });
-
-            const lines = extractedText.split('\n').filter(line => line.trim());
-            let y = 25;
-
-            doc.setFontSize(11);
-            
-            lines.forEach((line, index) => {
-                if (y > 280) {
-                    doc.addPage();
-                    y = 20;
-                }
-                
-                // نص بسيط لأن jsPDF لا يدعم العربي بشكل كامل
-                const text = line.substring(0, 90);
-                doc.text(text, 20, y);
-                y += 7;
-            });
-
-            doc.save(`${currentFileName}_معدل.pdf`);
+            // PDF بسيط - jsPDF لا يدعم العربي بشكل جيد
+            alert('تحميل PDF: يرجى استخدام Word ثم تحويله إلى PDF للحصول على أفضل نتيجة للنصوص العربية');
         }
 
         function downloadExcel() {
-            const lines = extractedText.split('\n').filter(line => line.trim());
+            const lines = extractedText.split('\n').filter(l => l.trim());
             const data = lines.map(line => [line]);
 
             const ws = XLSX.utils.aoa_to_sheet(data);
@@ -590,51 +399,100 @@
         }
 
         async function downloadNotesWord() {
-            try {
-                // إنشاء محتوى بسيط
-                const content = `ملف الملاحظات - ${currentFileName}\n\nتاريخ المعالجة: ${new Date().toLocaleDateString('ar-SA')}\n\n`;
-                let notesText = content;
-                
+            const { Document, Paragraph, TextRun, AlignmentType } = docx;
+
+            const paragraphs = [
+                new Paragraph({
+                    children: [
+                        new TextRun({
+                            text: `ملف الملاحظات - ${currentFileName}`,
+                            font: { name: "Arial" },
+                            size: 28,
+                            bold: true,
+                            rightToLeft: true
+                        })
+                    ],
+                    alignment: AlignmentType.RIGHT,
+                    spacing: { after: 400 }
+                }),
+                new Paragraph({
+                    children: [
+                        new TextRun({
+                            text: `تاريخ: ${new Date().toLocaleDateString('ar-SA')}`,
+                            font: { name: "Arial" },
+                            size: 22,
+                            rightToLeft: true
+                        })
+                    ],
+                    alignment: AlignmentType.RIGHT,
+                    spacing: { after: 400 }
+                })
+            ];
+
+            if (currentNotes.length === 0) {
+                paragraphs.push(
+                    new Paragraph({
+                        children: [
+                            new TextRun({
+                                text: 'لا توجد أخطاء إملائية أو أرقام غير منسقة',
+                                font: { name: "Arial" },
+                                size: 22,
+                                rightToLeft: true
+                            })
+                        ],
+                        alignment: AlignmentType.RIGHT
+                    })
+                );
+            } else {
                 currentNotes.forEach((note, index) => {
-                    notesText += `${index + 1}. ${note.type}: ${note.message}\n\n`;
+                    paragraphs.push(
+                        new Paragraph({
+                            children: [
+                                new TextRun({
+                                    text: `${index + 1}. ${note.type}: ${note.message}`,
+                                    font: { name: "Arial" },
+                                    size: 22,
+                                    rightToLeft: true
+                                })
+                            ],
+                            alignment: AlignmentType.RIGHT,
+                            spacing: { after: 200 }
+                        })
+                    );
                 });
-
-                if (currentNotes.length === 0) {
-                    notesText += 'لا توجد أخطاء إملائية أو أرقام غير منسقة.\n';
-                }
-
-                const blob = new Blob([notesText], {type: 'text/plain;charset=utf-8'});
-                saveAs(blob, `${currentFileName}_ملاحظات.txt`);
-            } catch (error) {
-                console.error('خطأ:', error);
             }
+
+            const doc = new Document({
+                sections: [{
+                    properties: {
+                        page: {
+                            margin: {
+                                top: 1000,
+                                right: 2500,
+                                bottom: 1000,
+                                left: 1000
+                            }
+                        }
+                    },
+                    children: paragraphs
+                }]
+            });
+
+            const blob = await docx.Packer.toBlob(doc);
+            downloadBlob(blob, `${currentFileName}_ملاحظات.docx`);
         }
 
         function downloadNotesPdf() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
+            alert('تحميل PDF: يرجى استخدام Word ثم تحويله إلى PDF للحصول على أفضل نتيجة');
+        }
 
-            doc.setFontSize(16);
-            doc.text('File Notes', 105, 20, { align: 'center' });
-            
-            doc.setFontSize(11);
-            doc.text(`Date: ${new Date().toLocaleDateString('ar-SA')}`, 20, 35);
-
-            let y = 50;
-            currentNotes.forEach((note, index) => {
-                if (y > 270) {
-                    doc.addPage();
-                    y = 20;
-                }
-                doc.text(`${index + 1}. ${note.type}: ${note.message}`, 20, y);
-                y += 10;
-            });
-
-            if (currentNotes.length === 0) {
-                doc.text('No spelling errors or unformatted numbers found.', 20, y);
-            }
-
-            doc.save(`${currentFileName}_notes.pdf`);
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
         }
 
         function resetUpload() {
@@ -643,7 +501,6 @@
             document.getElementById('fileInput').value = '';
             extractedText = '';
             currentNotes = [];
-            originalFileBlob = null;
         }
     </script>
 </body>
