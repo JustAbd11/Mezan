@@ -358,58 +358,80 @@
                 // قراءة محتوى document.xml
                 let docXml = await zip.file("word/document.xml").async("string");
 
-                // تطبيق التعديلات على XML
+                // التعديلات البسيطة والآمنة
+
+                // 1. تغيير الخط إلى Arial
+                docXml = docXml.replace(/<w:rFonts[^\/]*\/>/g, '<w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>');
                 
-                // 1. تغيير الخط إلى Arial حجم 11 (22 half-points)
-                docXml = docXml.replace(/<w:rFonts[^>]*>/g, '<w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:eastAsia="Arial" w:cs="Arial"/>');
-                docXml = docXml.replace(/<w:sz w:val="\d+"/g, '<w:sz w:val="22"');
-                docXml = docXml.replace(/<w:szCs w:val="\d+"/g, '<w:szCs w:val="22"');
+                // 2. تغيير حجم الخط إلى 11 (22 half-points)
+                docXml = docXml.replace(/<w:sz w:val="\d+"\/>/g, '<w:sz w:val="22"/>');
+                docXml = docXml.replace(/<w:szCs w:val="\d+"\/>/g, '<w:szCs w:val="22"/>');
 
-                // 2. إضافة Bold للعناوين (النصوص القصيرة أو التي تحتوي على كلمات معينة)
-                // نبحث عن الفقرات ونضيف Bold للعناوين
-                docXml = docXml.replace(/(<w:pStyle w:val="[^"]*Heading[^"]*"[^>]*>)/g, function(match) {
-                    return match + '<w:rPr><w:b/><w:bCs/></w:rPr>';
-                });
-
-                // إضافة Bold للنصوص التي تحتوي على كلمات عناوين
-                const headingWords = ['الباب', 'الفصل', 'القسم', 'الميزانية', 'الإجمالي', 'المجموع'];
-                headingWords.forEach(word => {
-                    const regex = new RegExp(`(<w:t[^>]*>)(${word}[^<]*)(</w:t>)`, 'g');
-                    docXml = docXml.replace(regex, function(match, p1, p2, p3) {
-                        return `<w:rPr><w:b/><w:bCs/></w:rPr>${p1}${p2}${p3}`;
-                    });
-                });
-
-                // 3. توسيع الهامش الأيمن في settings
-                const settingsXml = await zip.file("word/settings.xml")?.async("string");
-                if (settingsXml) {
-                    // يمكن تعديل الإعدادات هنا إذا لزم الأمر
-                }
-
-                // 4. تصحيح الأخطاء الإملائية
-                const corrections = [
-                    {wrong: 'الميزانيه', correct: 'الميزانية'},
-                    {wrong: 'الاجمالي', correct: 'الإجمالي'},
-                    {wrong: 'المصاريف', correct: 'المصروفات'},
-                    {wrong: 'الايرادات', correct: 'الإيرادات'}
-                ];
-
-                corrections.forEach(({wrong, correct}) => {
-                    const regex = new RegExp(`(>[^<]*)${wrong}([^<]*<)`, 'g');
-                    docXml = docXml.replace(regex, `$1${correct}$2`);
-                });
+                // 3. تصحيح الأخطاء الإملائية
+                docXml = docXml.replace(/الميزانيه/g, 'الميزانية');
+                docXml = docXml.replace(/الاجمالي/g, 'الإجمالي');
+                docXml = docXml.replace(/المصاريف/g, 'المصروفات');
+                docXml = docXml.replace(/الايرادات/g, 'الإيرادات');
 
                 // حفظ التعديلات
                 zip.file("word/document.xml", docXml);
 
                 // توليد الملف الجديد
-                const blob = await zip.generateAsync({type: "blob"});
+                const blob = await zip.generateAsync({
+                    type: "blob",
+                    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                });
+                
                 saveAs(blob, `${currentFileName}_معدل.docx`);
 
             } catch (error) {
-                console.error('خطأ في معالجة Word:', error);
-                alert('حدث خطأ في تعديل الملف. تأكد من أن الملف بصيغة .docx صحيحة');
+                console.error('خطأ:', error);
+                // في حالة الخطأ، ننشئ ملف جديد بالمحتوى
+                downloadWordAlternative();
             }
+        }
+
+        // طريقة بديلة إذا فشلت الأولى
+        async function downloadWordAlternative() {
+            const { Document, Paragraph, TextRun, AlignmentType } = docx;
+
+            const lines = extractedText.split('\n').filter(l => l.trim());
+            const paragraphs = lines.map(line => {
+                const isHeading = line.includes('الباب') || line.includes('الميزانية') || line.includes('القسم');
+                
+                return new Paragraph({
+                    children: [
+                        new TextRun({
+                            text: line,
+                            font: { name: "Arial" },
+                            size: 22,
+                            bold: isHeading,
+                            rightToLeft: true
+                        })
+                    ],
+                    alignment: AlignmentType.RIGHT,
+                    rightToLeft: true
+                });
+            });
+
+            const doc = new Document({
+                sections: [{
+                    properties: {
+                        page: {
+                            margin: {
+                                top: 1000,
+                                right: 2500,
+                                bottom: 1000,
+                                left: 1000
+                            }
+                        }
+                    },
+                    children: paragraphs
+                }]
+            });
+
+            const blob = await docx.Packer.toBlob(doc);
+            downloadBlob(blob, `${currentFileName}_معدل.docx`);
         }
 
         function downloadPdf() {
