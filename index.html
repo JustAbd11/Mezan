@@ -269,29 +269,44 @@
                             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                             extractedText = XLSX.utils.sheet_to_txt(firstSheet);
                         } else if (ext === 'docx') {
-                            // استخراج النص الفعلي من Word
+                            // استخراج النص الكامل من Word
                             const arrayBuffer = e.target.result;
                             const zip = await JSZip.loadAsync(arrayBuffer);
                             const xml = await zip.file("word/document.xml").async("string");
                             
-                            // استخراج كل النصوص من <w:t>
-                            const textMatches = xml.match(/<w:t[^>]*>([^<]*)<\/w:t>/g);
-                            if (textMatches) {
-                                const texts = textMatches.map(match => {
-                                    return match.replace(/<w:t[^>]*>/, '').replace(/<\/w:t>/, '');
-                                });
-                                extractedText = texts.join('');
-                            } else {
-                                extractedText = '';
+                            // استخراج كل النصوص والفقرات
+                            const parser = new DOMParser();
+                            const xmlDoc = parser.parseFromString(xml, "text/xml");
+                            const textElements = xmlDoc.getElementsByTagName("w:t");
+                            
+                            let allText = [];
+                            for (let i = 0; i < textElements.length; i++) {
+                                const text = textElements[i].textContent;
+                                if (text && text.trim()) {
+                                    allText.push(text);
+                                }
+                            }
+                            
+                            extractedText = allText.join(' ');
+                            
+                            // إذا فشل، جرب طريقة بديلة
+                            if (!extractedText || extractedText.length < 10) {
+                                const textMatches = xml.match(/<w:t[^>]*>([^<]+)<\/w:t>/g);
+                                if (textMatches) {
+                                    extractedText = textMatches
+                                        .map(m => m.replace(/<[^>]+>/g, ''))
+                                        .join(' ');
+                                }
                             }
                         } else {
                             extractedText = 'محتوى PDF';
                         }
                     } catch (error) {
                         console.error('خطأ في القراءة:', error);
-                        extractedText = '';
+                        extractedText = 'تم رفع الملف';
                     }
                     
+                    console.log('النص المستخرج:', extractedText); // للتأكد
                     analyzeText();
                     showResults();
                     resolve();
@@ -410,6 +425,11 @@
         async function downloadWordAlternative() {
             const { Document, Paragraph, TextRun, AlignmentType } = docx;
 
+            if (!extractedText || extractedText.trim().length === 0) {
+                alert('لم يتم استخراج النص من الملف. جرب رفع الملف مرة أخرى.');
+                return;
+            }
+
             // تطبيق التصحيحات الإملائية
             let correctedText = extractedText;
             correctedText = correctedText.replace(/الميزانيه/g, 'الميزانية');
@@ -417,30 +437,47 @@
             correctedText = correctedText.replace(/المصاريف/g, 'المصروفات');
             correctedText = correctedText.replace(/الايرادات/g, 'الإيرادات');
 
-            // تقسيم النص إلى أسطر
-            const lines = correctedText.split(/[\n\r]+/).filter(l => l.trim());
+            // تقسيم إلى جمل وفقرات
+            // نحاول التقسيم بذكاء
+            let segments = [];
             
+            // تقسيم على النقاط والأسطر الجديدة
+            const parts = correctedText.split(/[.،؛\n\r]+/);
+            
+            parts.forEach(part => {
+                const trimmed = part.trim();
+                if (trimmed.length > 0) {
+                    segments.push(trimmed);
+                }
+            });
+
+            // إذا ما فيه تقسيم، نستخدم النص كامل
+            if (segments.length === 0) {
+                segments = [correctedText];
+            }
+
             const paragraphs = [];
 
-            lines.forEach(line => {
-                const trimmedLine = line.trim();
-                if (!trimmedLine) return;
+            segments.forEach(segment => {
+                if (!segment || !segment.trim()) return;
 
-                // تحديد إذا كان السطر عنوان
+                // تحديد إذا كان عنوان
                 const isHeading = 
-                    trimmedLine.includes('الباب') || 
-                    trimmedLine.includes('الفصل') ||
-                    trimmedLine.includes('القسم') ||
-                    trimmedLine.includes('الميزانية') ||
-                    trimmedLine.includes('الإجمالي') ||
-                    trimmedLine.includes('المجموع') ||
-                    trimmedLine.length < 50;
+                    segment.includes('الباب') || 
+                    segment.includes('الفصل') ||
+                    segment.includes('القسم') ||
+                    segment.includes('الميزانية') ||
+                    segment.includes('الإجمالي') ||
+                    segment.includes('المجموع') ||
+                    segment.includes('البند') ||
+                    /^\d+[\s\-\.\:]/g.test(segment) || // يبدأ برقم
+                    segment.length < 60; // النصوص القصيرة عادة عناوين
 
                 paragraphs.push(
                     new Paragraph({
                         children: [
                             new TextRun({
-                                text: trimmedLine,
+                                text: segment.trim(),
                                 font: { name: "Arial" },
                                 size: 22, // حجم 11
                                 bold: isHeading,
@@ -450,6 +487,7 @@
                         alignment: AlignmentType.RIGHT,
                         rightToLeft: true,
                         spacing: {
+                            before: 100,
                             after: 100
                         }
                     })
@@ -468,19 +506,7 @@
                             }
                         }
                     },
-                    children: paragraphs.length > 0 ? paragraphs : [
-                        new Paragraph({
-                            children: [
-                                new TextRun({
-                                    text: correctedText || 'محتوى الملف',
-                                    font: { name: "Arial" },
-                                    size: 22,
-                                    rightToLeft: true
-                                })
-                            ],
-                            alignment: AlignmentType.RIGHT
-                        })
-                    ]
+                    children: paragraphs
                 }]
             });
 
