@@ -598,9 +598,9 @@
 
         // استدعاء دالة PostgreSQL للتحقق من بيانات الدخول
         const { data, error } = await supabaseClient.rpc('verify_admin_login', {
-            p_username: username,
-            p_password: password
-        });
+    input_username: username,   // تغيير من p_username
+    input_password: password    // تغيير من p_password
+});
 
         if (error) {
             console.error('RPC error:', error);
