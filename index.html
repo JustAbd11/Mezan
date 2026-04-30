@@ -259,8 +259,9 @@
                     try {
                         const zip = new PizZip(content);
                         
-                        // قراءة document.xml مباشرة
-                        const xml = zip.files["word/document.xml"].asText();
+                        // قراءة document.xml بالطريقة الصحيحة
+                        const xmlFile = zip.files["word/document.xml"];
+                        const xml = await xmlFile.async("string");
                         
                         // استخراج النصوص من XML
                         const textRegex = /<w:t[^>]*>([^<]+)<\/w:t>/g;
