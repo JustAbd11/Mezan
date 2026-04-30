@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>نظام تعديل الميزانية</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.4/dist/pizzip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docxtemplater@3.37.11/build/docxtemplater.js"></script>
     <script src="https://unpkg.com/docx@7.8.2/build/index.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -165,8 +165,8 @@
             <div class="upload-section" id="uploadSection">
                 <div class="upload-icon">📊</div>
                 <h2>رفع ملف الميزانية</h2>
-                <p style="color: #8892b0; margin: 1rem 0;">الصيغ المدعومة: Word (.docx) | PDF (.pdf) | Excel (.xlsx)</p>
-                <input type="file" class="file-input" id="fileInput" accept=".docx,.pdf,.xlsx">
+                <p style="color: #8892b0; margin: 1rem 0;">الصيغ المدعومة: Word (.docx) | Excel (.xlsx)</p>
+                <input type="file" class="file-input" id="fileInput" accept=".docx,.xlsx">
                 <button class="btn" style="width: auto; padding: 1rem 3rem;" onclick="document.getElementById('fileInput').click()">اختيار ملف</button>
             </div>
 
@@ -182,16 +182,14 @@
                         <div style="background: rgba(10, 25, 47, 0.6); border-radius: 10px; padding: 1rem; margin-bottom: 1.5rem;" id="fileInfo"></div>
                         <div class="download-buttons">
                             <button class="btn-download" onclick="downloadWord()">📝 تحميل Word</button>
-                            <button class="btn-download" onclick="downloadPdf()">📕 تحميل PDF</button>
-                            <button class="btn-download" onclick="downloadExcel()" id="btnExcel">📊 تحميل Excel</button>
+                            <button class="btn-download" onclick="downloadExcel()" id="btnExcel" style="display:none;">📊 تحميل Excel</button>
                         </div>
                     </div>
 
                     <div class="result-card">
                         <h3>📋 ملف الملاحظات</h3>
                         <div class="notes-list" id="notesList"></div>
-                        <button class="btn-download" onclick="downloadNotesWord()" style="margin-top: 1rem;">📝 تحميل الملاحظات (Word)</button>
-                        <button class="btn-download" onclick="downloadNotesPdf()">📕 تحميل الملاحظات (PDF)</button>
+                        <button class="btn-download" onclick="downloadNotesWord()" style="margin-top: 1rem;">📝 تحميل الملاحظات</button>
                     </div>
                 </div>
                 <button class="btn" style="width: auto; margin: 2rem auto; display: block; padding: 1rem 2rem;" onclick="resetUpload()">رفع ملف جديد</button>
@@ -205,7 +203,8 @@
         let currentNotes = [];
         let extractedText = '';
         let fileType = '';
-        let originalWordFile = null; // حفظ الملف الأصلي
+        let originalFile = null;
+        let wordContent = null; // محتوى Word الأصلي
 
         // تسجيل الدخول
         document.getElementById('loginForm').addEventListener('submit', function(e) {
@@ -234,86 +233,57 @@
             if (!file) return;
 
             const ext = file.name.split('.').pop().toLowerCase();
-            if (!['docx', 'pdf', 'xlsx'].includes(ext)) {
-                alert('الرجاء رفع ملف Word أو PDF أو Excel فقط');
+            if (!['docx', 'xlsx'].includes(ext)) {
+                alert('الرجاء رفع ملف Word أو Excel فقط');
                 return;
             }
 
             currentFileName = file.name.substring(0, file.name.lastIndexOf('.'));
             fileType = ext;
-            originalWordFile = file; // حفظ الملف الأصلي
+            originalFile = file;
 
             document.getElementById('uploadSection').style.display = 'none';
             document.getElementById('processingSection').style.display = 'block';
 
             setTimeout(async () => {
-                try {
-                    await processFile(file, ext);
-                } catch (error) {
-                    console.error(error);
-                    extractedText = 'تم رفع الملف بنجاح';
-                    analyzeText();
-                    showResults();
-                }
-            }, 1000);
+                await processFile(file, ext);
+            }, 800);
         });
 
         async function processFile(file, ext) {
-            return new Promise((resolve) => {
-                const reader = new FileReader();
+            const reader = new FileReader();
 
-                reader.onload = async function(e) {
+            reader.onload = async function(e) {
+                const content = e.target.result;
+
+                if (ext === 'docx') {
                     try {
-                        if (ext === 'xlsx') {
-                            const workbook = XLSX.read(e.target.result, {type: 'array'});
-                            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                            extractedText = XLSX.utils.sheet_to_txt(firstSheet);
-                        } else if (ext === 'docx') {
-                            // استخراج النص الكامل من Word
-                            const arrayBuffer = e.target.result;
-                            const zip = await JSZip.loadAsync(arrayBuffer);
-                            const xml = await zip.file("word/document.xml").async("string");
-                            
-                            // استخراج كل النصوص والفقرات
-                            const parser = new DOMParser();
-                            const xmlDoc = parser.parseFromString(xml, "text/xml");
-                            const textElements = xmlDoc.getElementsByTagName("w:t");
-                            
-                            let allText = [];
-                            for (let i = 0; i < textElements.length; i++) {
-                                const text = textElements[i].textContent;
-                                if (text && text.trim()) {
-                                    allText.push(text);
-                                }
-                            }
-                            
-                            extractedText = allText.join(' ');
-                            
-                            // إذا فشل، جرب طريقة بديلة
-                            if (!extractedText || extractedText.length < 10) {
-                                const textMatches = xml.match(/<w:t[^>]*>([^<]+)<\/w:t>/g);
-                                if (textMatches) {
-                                    extractedText = textMatches
-                                        .map(m => m.replace(/<[^>]+>/g, ''))
-                                        .join(' ');
-                                }
-                            }
-                        } else {
-                            extractedText = 'محتوى PDF';
-                        }
-                    } catch (error) {
-                        console.error('خطأ في القراءة:', error);
-                        extractedText = 'تم رفع الملف';
-                    }
-                    
-                    console.log('النص المستخرج:', extractedText); // للتأكد
-                    analyzeText();
-                    showResults();
-                    resolve();
-                };
+                        const zip = new PizZip(content);
+                        const doc = new window.docxtemplater(zip, {
+                            paragraphLoop: true,
+                            linebreaks: true,
+                        });
 
-                reader.readAsArrayBuffer(file);
-            });
+                        // استخراج النص
+                        extractedText = doc.getFullText();
+                        wordContent = zip; // حفظ المحتوى الأصلي
+                        
+                        console.log('✅ تم استخراج النص:', extractedText.substring(0, 200));
+                    } catch (error) {
+                        console.error('خطأ في قراءة Word:', error);
+                        extractedText = 'خطأ في قراءة الملف';
+                    }
+                } else if (ext === 'xlsx') {
+                    const workbook = XLSX.read(content, {type: 'array'});
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    extractedText = XLSX.utils.sheet_to_txt(firstSheet);
+                }
+
+                analyzeText();
+                showResults();
+            };
+
+            reader.readAsArrayBuffer(file);
         }
 
         function analyzeText() {
@@ -338,7 +308,7 @@
             if (numbers && numbers.length > 0) {
                 currentNotes.push({
                     type: 'تنسيق أرقام',
-                    message: `تم تعديل ${numbers.length} رقم إلى التنسيق الدولي`
+                    message: `تم تعديل ${numbers.length} رقم`
                 });
             }
         }
@@ -350,11 +320,11 @@
             document.getElementById('btnExcel').style.display = fileType === 'xlsx' ? 'flex' : 'none';
 
             document.getElementById('fileInfo').innerHTML = `
-                <strong>اسم الملف:</strong> ${currentFileName}_معدل<br>
+                <strong>الملف:</strong> ${currentFileName}_معدل<br>
                 <strong>النوع:</strong> ${fileType.toUpperCase()}<br>
-                <strong>تاريخ:</strong> ${new Date().toLocaleDateString('ar-SA')}<br>
-                <strong>الحالة:</strong> <span style="color: #64ffda;">✓ تم التعديل</span><br>
-                <strong>التنسيق:</strong> Arial 11 • Bold • هوامش موسعة
+                <strong>التاريخ:</strong> ${new Date().toLocaleDateString('ar-SA')}<br>
+                <strong>الحالة:</strong> <span style="color: #64ffda;">✓ تم</span><br>
+                <strong>المحتوى:</strong> ${extractedText.length} حرف
             `;
 
             const notesList = document.getElementById('notesList');
@@ -375,121 +345,42 @@
         }
 
         async function downloadWord() {
-            if (!originalWordFile) {
-                alert('الملف الأصلي غير موجود');
-                return;
-            }
-
-            try {
-                // محاولة تعديل الملف الأصلي مباشرة
-                const arrayBuffer = await originalWordFile.arrayBuffer();
-                const zip = await JSZip.loadAsync(arrayBuffer);
-
-                // قراءة محتوى document.xml
-                let docXml = await zip.file("word/document.xml").async("string");
-
-                // التعديلات الآمنة فقط
-
-                // 1. تغيير الخط إلى Arial
-                docXml = docXml.replace(/<w:rFonts[^\/]*\/>/g, '<w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>');
-                
-                // 2. تغيير حجم الخط إلى 11 (22 half-points)
-                docXml = docXml.replace(/<w:sz w:val="\d+"\/>/g, '<w:sz w:val="22"/>');
-                docXml = docXml.replace(/<w:szCs w:val="\d+"\/>/g, '<w:szCs w:val="22"/>');
-
-                // 3. تصحيح الأخطاء الإملائية في النص
-                docXml = docXml.replace(/الميزانيه/g, 'الميزانية');
-                docXml = docXml.replace(/الاجمالي/g, 'الإجمالي');
-                docXml = docXml.replace(/المصاريف/g, 'المصروفات');
-                docXml = docXml.replace(/الايرادات/g, 'الإيرادات');
-
-                // حفظ التعديلات
-                zip.file("word/document.xml", docXml);
-
-                // توليد الملف الجديد
-                const blob = await zip.generateAsync({
-                    type: "blob",
-                    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                });
-                
-                saveAs(blob, `${currentFileName}_معدل.docx`);
-
-            } catch (error) {
-                console.error('فشل تعديل الملف الأصلي، استخدام الطريقة البديلة:', error);
-                // إذا فشلت الطريقة الأولى، استخدم البديلة
-                await downloadWordAlternative();
-            }
-        }
-
-        // طريقة بديلة - إنشاء Word من النص المستخرج
-        async function downloadWordAlternative() {
             const { Document, Paragraph, TextRun, AlignmentType } = docx;
 
-            if (!extractedText || extractedText.trim().length === 0) {
-                alert('لم يتم استخراج النص من الملف. جرب رفع الملف مرة أخرى.');
-                return;
-            }
+            // تصحيح النص
+            let text = extractedText;
+            text = text.replace(/الميزانيه/g, 'الميزانية');
+            text = text.replace(/الاجمالي/g, 'الإجمالي');
+            text = text.replace(/المصاريف/g, 'المصروفات');
+            text = text.replace(/الايرادات/g, 'الإيرادات');
 
-            // تطبيق التصحيحات الإملائية
-            let correctedText = extractedText;
-            correctedText = correctedText.replace(/الميزانيه/g, 'الميزانية');
-            correctedText = correctedText.replace(/الاجمالي/g, 'الإجمالي');
-            correctedText = correctedText.replace(/المصاريف/g, 'المصروفات');
-            correctedText = correctedText.replace(/الايرادات/g, 'الإيرادات');
-
-            // تقسيم إلى جمل وفقرات
-            // نحاول التقسيم بذكاء
-            let segments = [];
-            
-            // تقسيم على النقاط والأسطر الجديدة
-            const parts = correctedText.split(/[.،؛\n\r]+/);
-            
-            parts.forEach(part => {
-                const trimmed = part.trim();
-                if (trimmed.length > 0) {
-                    segments.push(trimmed);
-                }
-            });
-
-            // إذا ما فيه تقسيم، نستخدم النص كامل
-            if (segments.length === 0) {
-                segments = [correctedText];
-            }
-
+            // تقسيم النص
+            const parts = text.split(/\n+/);
             const paragraphs = [];
 
-            segments.forEach(segment => {
-                if (!segment || !segment.trim()) return;
+            parts.forEach(part => {
+                if (!part.trim()) return;
 
-                // تحديد إذا كان عنوان
                 const isHeading = 
-                    segment.includes('الباب') || 
-                    segment.includes('الفصل') ||
-                    segment.includes('القسم') ||
-                    segment.includes('الميزانية') ||
-                    segment.includes('الإجمالي') ||
-                    segment.includes('المجموع') ||
-                    segment.includes('البند') ||
-                    /^\d+[\s\-\.\:]/g.test(segment) || // يبدأ برقم
-                    segment.length < 60; // النصوص القصيرة عادة عناوين
+                    part.includes('الباب') || 
+                    part.includes('الفصل') ||
+                    part.includes('الميزانية') ||
+                    part.length < 60;
 
                 paragraphs.push(
                     new Paragraph({
                         children: [
                             new TextRun({
-                                text: segment.trim(),
+                                text: part.trim(),
                                 font: { name: "Arial" },
-                                size: 22, // حجم 11
+                                size: 22,
                                 bold: isHeading,
                                 rightToLeft: true
                             })
                         ],
                         alignment: AlignmentType.RIGHT,
                         rightToLeft: true,
-                        spacing: {
-                            before: 100,
-                            after: 100
-                        }
+                        spacing: { after: 120 }
                     })
                 );
             });
@@ -500,7 +391,7 @@
                         page: {
                             margin: {
                                 top: 1000,
-                                right: 2500, // هامش أيمن موسع
+                                right: 2500,
                                 bottom: 1000,
                                 left: 1000
                             }
@@ -511,12 +402,7 @@
             });
 
             const blob = await docx.Packer.toBlob(doc);
-            downloadBlob(blob, `${currentFileName}_معدل.docx`);
-        }
-
-        function downloadPdf() {
-            // PDF بسيط - jsPDF لا يدعم العربي بشكل جيد
-            alert('تحميل PDF: يرجى استخدام Word ثم تحويله إلى PDF للحصول على أفضل نتيجة للنصوص العربية');
+            saveAs(blob, `${currentFileName}_معدل.docx`);
         }
 
         function downloadExcel() {
@@ -546,18 +432,6 @@
                     ],
                     alignment: AlignmentType.RIGHT,
                     spacing: { after: 400 }
-                }),
-                new Paragraph({
-                    children: [
-                        new TextRun({
-                            text: `تاريخ: ${new Date().toLocaleDateString('ar-SA')}`,
-                            font: { name: "Arial" },
-                            size: 22,
-                            rightToLeft: true
-                        })
-                    ],
-                    alignment: AlignmentType.RIGHT,
-                    spacing: { after: 400 }
                 })
             ];
 
@@ -566,7 +440,7 @@
                     new Paragraph({
                         children: [
                             new TextRun({
-                                text: 'لا توجد أخطاء إملائية أو أرقام غير منسقة',
+                                text: 'لا توجد أخطاء',
                                 font: { name: "Arial" },
                                 size: 22,
                                 rightToLeft: true
@@ -576,12 +450,12 @@
                     })
                 );
             } else {
-                currentNotes.forEach((note, index) => {
+                currentNotes.forEach((note, i) => {
                     paragraphs.push(
                         new Paragraph({
                             children: [
                                 new TextRun({
-                                    text: `${index + 1}. ${note.type}: ${note.message}`,
+                                    text: `${i + 1}. ${note.type}: ${note.message}`,
                                     font: { name: "Arial" },
                                     size: 22,
                                     rightToLeft: true
@@ -596,35 +470,12 @@
 
             const doc = new Document({
                 sections: [{
-                    properties: {
-                        page: {
-                            margin: {
-                                top: 1000,
-                                right: 2500,
-                                bottom: 1000,
-                                left: 1000
-                            }
-                        }
-                    },
                     children: paragraphs
                 }]
             });
 
             const blob = await docx.Packer.toBlob(doc);
-            downloadBlob(blob, `${currentFileName}_ملاحظات.docx`);
-        }
-
-        function downloadNotesPdf() {
-            alert('تحميل PDF: يرجى استخدام Word ثم تحويله إلى PDF للحصول على أفضل نتيجة');
-        }
-
-        function downloadBlob(blob, filename) {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            a.click();
-            URL.revokeObjectURL(url);
+            saveAs(blob, `${currentFileName}_ملاحظات.docx`);
         }
 
         function resetUpload() {
@@ -633,7 +484,8 @@
             document.getElementById('fileInput').value = '';
             extractedText = '';
             currentNotes = [];
-            originalWordFile = null;
+            originalFile = null;
+            wordContent = null;
         }
     </script>
 </body>
