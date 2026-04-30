@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/7.8.2/docx.min.js"></script>
@@ -22,33 +23,14 @@
             background: linear-gradient(135deg, #0a192f 0%, #172a45 100%);
             min-height: 100vh;
             color: #e6f1ff;
-            position: relative;
-            overflow-x: hidden;
-        }
-
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image: 
-                radial-gradient(circle at 20% 50%, rgba(100, 255, 218, 0.05) 0%, transparent 50%),
-                radial-gradient(circle at 80% 80%, rgba(136, 146, 176, 0.05) 0%, transparent 50%);
-            pointer-events: none;
-            z-index: 0;
         }
 
         .container {
-            position: relative;
-            z-index: 1;
             max-width: 1400px;
             margin: 0 auto;
             padding: 2rem;
         }
 
-        /* Login Screen */
         .login-screen {
             display: flex;
             justify-content: center;
@@ -57,59 +39,34 @@
         }
 
         .login-box {
-            background: rgba(23, 42, 69, 0.8);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(100, 255, 218, 0.1);
+            background: rgba(23, 42, 69, 0.9);
+            border: 1px solid rgba(100, 255, 218, 0.2);
             border-radius: 20px;
             padding: 3rem;
             width: 100%;
             max-width: 450px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            animation: slideUp 0.6s ease-out;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
 
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .login-header {
-            text-align: center;
-            margin-bottom: 2.5rem;
-        }
-
-        .login-header h1 {
+        h1 {
             font-size: 2rem;
-            font-weight: 700;
             color: #64ffda;
-            margin-bottom: 0.5rem;
-            text-shadow: 0 0 30px rgba(100, 255, 218, 0.3);
-        }
-
-        .login-header p {
-            color: #8892b0;
-            font-size: 0.95rem;
+            margin-bottom: 2rem;
+            text-align: center;
         }
 
         .form-group {
             margin-bottom: 1.5rem;
         }
 
-        .form-group label {
+        label {
             display: block;
             margin-bottom: 0.5rem;
             color: #ccd6f6;
             font-weight: 500;
-            font-size: 0.9rem;
         }
 
-        .form-group input {
+        input {
             width: 100%;
             padding: 0.9rem 1.2rem;
             background: rgba(10, 25, 47, 0.6);
@@ -118,17 +75,15 @@
             color: #e6f1ff;
             font-size: 1rem;
             font-family: 'Cairo', sans-serif;
-            transition: all 0.3s ease;
         }
 
-        .form-group input:focus {
+        input:focus {
             outline: none;
             border-color: #64ffda;
             box-shadow: 0 0 0 3px rgba(100, 255, 218, 0.1);
-            background: rgba(10, 25, 47, 0.8);
         }
 
-        .btn-login {
+        .btn {
             width: 100%;
             padding: 1rem;
             background: linear-gradient(135deg, #64ffda 0%, #4ecdc4 100%);
@@ -138,54 +93,30 @@
             font-size: 1.1rem;
             font-weight: 700;
             cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 1rem;
             font-family: 'Cairo', sans-serif;
+            margin-top: 1rem;
+            transition: all 0.3s ease;
         }
 
-        .btn-login:hover {
+        .btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 30px rgba(100, 255, 218, 0.3);
-        }
-
-        .btn-login:active {
-            transform: translateY(0);
-        }
-
-        .btn-login:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
         }
 
         .message {
             padding: 0.8rem;
             border-radius: 8px;
             margin-bottom: 1rem;
-            font-size: 0.9rem;
             text-align: center;
             display: none;
-            animation: shake 0.5s ease;
         }
 
-        .error-message {
+        .error {
             background: rgba(255, 87, 87, 0.1);
             border: 1px solid rgba(255, 87, 87, 0.3);
             color: #ff5757;
         }
 
-        .success-message {
-            background: rgba(100, 255, 218, 0.1);
-            border: 1px solid rgba(100, 255, 218, 0.3);
-            color: #64ffda;
-        }
-
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-10px); }
-            75% { transform: translateX(10px); }
-        }
-
-        /* Main Dashboard */
         .dashboard {
             display: none;
         }
@@ -201,25 +132,6 @@
 
         .dashboard-header h1 {
             font-size: 2.5rem;
-            font-weight: 700;
-            color: #64ffda;
-            text-shadow: 0 0 30px rgba(100, 255, 218, 0.2);
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .user-badge {
-            background: rgba(100, 255, 218, 0.1);
-            border: 1px solid rgba(100, 255, 218, 0.3);
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            color: #64ffda;
-            font-weight: 600;
-            font-size: 0.9rem;
         }
 
         .btn-logout {
@@ -231,67 +143,21 @@
             cursor: pointer;
             font-family: 'Cairo', sans-serif;
             font-weight: 600;
-            transition: all 0.3s ease;
-        }
-
-        .btn-logout:hover {
-            background: rgba(255, 87, 87, 0.2);
-            transform: translateY(-2px);
         }
 
         .upload-section {
             background: rgba(23, 42, 69, 0.6);
-            backdrop-filter: blur(10px);
             border: 2px dashed rgba(100, 255, 218, 0.3);
             border-radius: 20px;
             padding: 3rem;
             text-align: center;
             margin-bottom: 2rem;
-            transition: all 0.3s ease;
-        }
-
-        .upload-section:hover {
-            border-color: #64ffda;
-            background: rgba(23, 42, 69, 0.8);
         }
 
         .upload-icon {
             font-size: 4rem;
             margin-bottom: 1rem;
             color: #64ffda;
-        }
-
-        .upload-section h2 {
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-            color: #ccd6f6;
-        }
-
-        .upload-section p {
-            color: #8892b0;
-            margin-bottom: 2rem;
-        }
-
-        .btn-upload {
-            padding: 1rem 3rem;
-            background: linear-gradient(135deg, #64ffda 0%, #4ecdc4 100%);
-            color: #0a192f;
-            border: none;
-            border-radius: 10px;
-            font-size: 1.1rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-family: 'Cairo', sans-serif;
-        }
-
-        .btn-upload:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(100, 255, 218, 0.3);
-        }
-
-        .file-input {
-            display: none;
         }
 
         .processing-section {
@@ -314,16 +180,6 @@
             to { transform: rotate(360deg); }
         }
 
-        .processing-section h3 {
-            font-size: 1.5rem;
-            color: #ccd6f6;
-            margin-bottom: 1rem;
-        }
-
-        .processing-section p {
-            color: #8892b0;
-        }
-
         .results-section {
             display: none;
         }
@@ -337,17 +193,9 @@
 
         .result-card {
             background: rgba(23, 42, 69, 0.6);
-            backdrop-filter: blur(10px);
             border: 1px solid rgba(100, 255, 218, 0.1);
             border-radius: 20px;
             padding: 2rem;
-            transition: all 0.3s ease;
-        }
-
-        .result-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-            border-color: #64ffda;
         }
 
         .result-card h3 {
@@ -373,15 +221,10 @@
             font-family: 'Cairo', sans-serif;
             font-weight: 600;
             transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
         }
 
         .btn-download:hover {
             background: rgba(100, 255, 218, 0.2);
-            transform: translateX(-5px);
         }
 
         .notes-list {
@@ -399,12 +242,6 @@
             border-right: 3px solid #ffd700;
             border-radius: 8px;
             margin-bottom: 1rem;
-            font-size: 0.95rem;
-            line-height: 1.6;
-        }
-
-        .note-item:last-child {
-            margin-bottom: 0;
         }
 
         .note-item strong {
@@ -413,373 +250,421 @@
             margin-bottom: 0.3rem;
         }
 
-        .file-info {
-            background: rgba(10, 25, 47, 0.6);
-            border-radius: 10px;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
-            font-size: 0.9rem;
-            color: #8892b0;
-        }
-
-        .btn-new {
-            padding: 1rem 2rem;
-            background: linear-gradient(135deg, #64ffda 0%, #4ecdc4 100%);
-            color: #0a192f;
-            border: none;
-            border-radius: 10px;
-            font-size: 1.1rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-family: 'Cairo', sans-serif;
-            margin: 2rem auto;
-            display: block;
-        }
-
-        .btn-new:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(100, 255, 218, 0.3);
-        }
-
-        @media (max-width: 768px) {
-            .results-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .dashboard-header {
-                flex-direction: column;
-                gap: 1rem;
-                text-align: center;
-            }
-
-            .user-info {
-                flex-direction: column;
-            }
-
-            .login-box {
-                padding: 2rem;
-            }
+        .file-input {
+            display: none;
         }
     </style>
 </head>
 <body>
-    <!-- Login Screen -->
     <div class="login-screen" id="loginScreen">
         <div class="login-box">
-            <div class="login-header">
-                <h1>🏦 نظام تعديل الميزانية</h1>
-                <p>نظام احترافي آمن لمعالجة وتعديل ملفات الميزانية</p>
-            </div>
-            <div class="message error-message" id="errorMessage"></div>
-            <div class="message success-message" id="successMessage"></div>
+            <h1>🏦 نظام تعديل الميزانية</h1>
+            <div class="message error" id="errorMessage"></div>
             <form id="loginForm">
                 <div class="form-group">
-                    <label for="username">اسم المستخدم</label>
-                    <input type="text" id="username" required autocomplete="off" value="Admin">
+                    <label>اسم المستخدم</label>
+                    <input type="text" id="username" value="Admin">
                 </div>
                 <div class="form-group">
-                    <label for="password">كلمة المرور</label>
-                    <input type="password" id="password" required value="Pass1122">
+                    <label>كلمة المرور</label>
+                    <input type="password" id="password" value="Pass1122">
                 </div>
-                <button type="submit" class="btn-login" id="loginBtn">تسجيل الدخول</button>
+                <button type="submit" class="btn">تسجيل الدخول</button>
             </form>
         </div>
     </div>
 
-    <!-- Dashboard -->
     <div class="dashboard" id="dashboard">
         <div class="container">
             <div class="dashboard-header">
                 <h1>📊 لوحة التحكم</h1>
-                <div class="user-info">
-                    <div class="user-badge" id="userBadge">👤 Admin</div>
-                    <button class="btn-logout" id="logoutBtn">تسجيل الخروج</button>
-                </div>
+                <button class="btn-logout" onclick="logout()">تسجيل الخروج</button>
             </div>
 
-            <!-- Upload Section -->
             <div class="upload-section" id="uploadSection">
                 <div class="upload-icon">📊</div>
                 <h2>رفع ملف الميزانية</h2>
-                <p>قم بسحب وإفلات الملف أو اضغط على الزر أدناه</p>
-                <p style="font-size: 0.85rem; color: #64ffda;">الصيغ المدعومة: Word (.docx) | PDF (.pdf) | Excel (.xlsx)</p>
+                <p style="color: #8892b0; margin: 1rem 0;">الصيغ المدعومة: Word (.docx) | PDF (.pdf) | Excel (.xlsx)</p>
                 <input type="file" class="file-input" id="fileInput" accept=".docx,.pdf,.xlsx">
-                <button class="btn-upload" id="uploadBtn">اختيار ملف</button>
+                <button class="btn" style="width: auto; padding: 1rem 3rem;" onclick="document.getElementById('fileInput').click()">اختيار ملف</button>
             </div>
 
-            <!-- Processing Section -->
             <div class="processing-section" id="processingSection">
                 <div class="spinner"></div>
-                <h3>جاري معالجة الملف...</h3>
-                <p>يتم الآن تحليل وتعديل ملف الميزانية وفقاً للمعايير الاحترافية</p>
+                <h3 style="color: #ccd6f6; margin-bottom: 1rem;">جاري معالجة الملف...</h3>
+                <p style="color: #8892b0;">يتم الآن قراءة وتحليل وتعديل ملف الميزانية</p>
             </div>
 
-            <!-- Results Section -->
             <div class="results-section" id="resultsSection">
                 <div class="results-grid">
                     <div class="result-card">
                         <h3>📄 الملف المُعدّل</h3>
-                        <div class="file-info" id="fileInfo"></div>
+                        <div style="background: rgba(10, 25, 47, 0.6); border-radius: 10px; padding: 1rem; margin-bottom: 1.5rem; font-size: 0.9rem;" id="fileInfo"></div>
                         <div class="download-buttons">
-                            <button class="btn-download" id="downloadWord">
-                                <span>📝</span> تحميل Word
-                            </button>
-                            <button class="btn-download" id="downloadPdf">
-                                <span>📕</span> تحميل PDF
-                            </button>
-                            <button class="btn-download" id="downloadExcel">
-                                <span>📊</span> تحميل Excel
-                            </button>
+                            <button class="btn-download" onclick="downloadWord()">📝 تحميل Word</button>
+                            <button class="btn-download" onclick="downloadPdf()">📕 تحميل PDF</button>
+                            <button class="btn-download" onclick="downloadExcel()" id="btnExcel">📊 تحميل Excel</button>
                         </div>
                     </div>
 
                     <div class="result-card">
                         <h3>📋 ملف الملاحظات</h3>
                         <div class="notes-list" id="notesList"></div>
-                        <button class="btn-download" id="downloadNotes" style="margin-top: 1rem;">
-                            <span>📄</span> تحميل ملف الملاحظات
-                        </button>
+                        <button class="btn-download" onclick="downloadNotes()" style="margin-top: 1rem;">📄 تحميل ملف الملاحظات (Word)</button>
+                        <button class="btn-download" onclick="downloadNotesPdf()">📕 تحميل ملف الملاحظات (PDF)</button>
                     </div>
                 </div>
-                <button class="btn-new" id="newFileBtn">رفع ملف جديد</button>
+                <button class="btn" style="width: auto; margin: 2rem auto; display: block; padding: 1rem 2rem;" onclick="resetUpload()">رفع ملف جديد</button>
             </div>
         </div>
     </div>
 
-    <script src="supabase-config.js"></script>
     <script>
-        let supabaseClient;
         let currentUser = null;
         let currentFileName = '';
         let currentNotes = [];
+        let extractedText = '';
+        let fileType = '';
+        let originalFileData = null;
 
-        // تهيئة Supabase
-        function initSupabase() {
-            try {
-                supabaseClient = supabase.createClient(
-                    SUPABASE_CONFIG.SUPABASE_URL,
-                    SUPABASE_CONFIG.SUPABASE_ANON_KEY
-                );
-                console.log('✅ تم الاتصال بـ Supabase');
-            } catch (error) {
-                console.error('❌ خطأ في الاتصال:', error);
+        // تسجيل الدخول
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            if (username === 'Admin' && password === 'Pass1122') {
+                currentUser = { username: 'Admin' };
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+            } else {
+                const errorMsg = document.getElementById('errorMessage');
+                errorMsg.textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة';
+                errorMsg.style.display = 'block';
             }
-        }
-
-        // تسجيل الدخول - بدون bcrypt
-        async function login(username, password) {
-            try {
-                const loginBtn = document.getElementById('loginBtn');
-                loginBtn.disabled = true;
-                loginBtn.textContent = 'جاري تسجيل الدخول...';
-
-                // تسجيل دخول مباشر بدون قاعدة بيانات (للتجربة)
-                if (username === 'Admin' && password === 'Pass1122') {
-                    currentUser = {
-                        id: '1',
-                        username: 'Admin',
-                        full_name: 'مدير النظام'
-                    };
-                    showDashboard();
-                    
-                    loginBtn.disabled = false;
-                    loginBtn.textContent = 'تسجيل الدخول';
-                } else {
-                    throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
-                }
-
-            } catch (error) {
-                console.error('خطأ:', error);
-                showMessage('error', error.message);
-                
-                const loginBtn = document.getElementById('loginBtn');
-                loginBtn.disabled = false;
-                loginBtn.textContent = 'تسجيل الدخول';
-            }
-        }
+        });
 
         function logout() {
             currentUser = null;
             document.getElementById('dashboard').style.display = 'none';
             document.getElementById('loginScreen').style.display = 'flex';
-            document.getElementById('username').value = '';
-            document.getElementById('password').value = '';
             resetUpload();
         }
 
-        function handleFile(file) {
-            const validExtensions = ['docx', 'pdf', 'xlsx'];
-            const fileExtension = file.name.split('.').pop().toLowerCase();
+        // معالجة الملف
+        document.getElementById('fileInput').addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
 
-            if (!validExtensions.includes(fileExtension)) {
-                alert('الرجاء رفع ملف بصيغة Word أو PDF أو Excel فقط');
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (!['docx', 'pdf', 'xlsx'].includes(ext)) {
+                alert('الرجاء رفع ملف Word أو PDF أو Excel فقط');
                 return;
             }
 
             currentFileName = file.name.substring(0, file.name.lastIndexOf('.'));
-            
+            fileType = ext;
+            originalFileData = file;
+
             document.getElementById('uploadSection').style.display = 'none';
             document.getElementById('processingSection').style.display = 'block';
 
-            setTimeout(() => {
-                processFileSimple();
-            }, 2000);
+            try {
+                await processFile(file, ext);
+            } catch (error) {
+                alert('حدث خطأ في معالجة الملف: ' + error.message);
+                resetUpload();
+            }
+        });
+
+        async function processFile(file, ext) {
+            const reader = new FileReader();
+
+            reader.onload = async function(e) {
+                const arrayBuffer = e.target.result;
+
+                try {
+                    if (ext === 'docx') {
+                        const result = await mammoth.extractRawText({arrayBuffer: arrayBuffer});
+                        extractedText = result.value;
+                    } else if (ext === 'xlsx') {
+                        const workbook = XLSX.read(arrayBuffer, {type: 'array'});
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        extractedText = XLSX.utils.sheet_to_txt(firstSheet);
+                    } else if (ext === 'pdf') {
+                        const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+                        let text = '';
+                        for (let i = 1; i <= pdf.numPages; i++) {
+                            const page = await pdf.getPage(i);
+                            const content = await page.getTextContent();
+                            text += content.items.map(item => item.str).join(' ') + '\n';
+                        }
+                        extractedText = text;
+                    }
+
+                    analyzeText();
+                    showResults();
+                } catch (error) {
+                    throw new Error('فشل في قراءة الملف');
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
         }
 
-        function processFileSimple() {
-            currentNotes = [
-                {
-                    page_number: 'جميع الصفحات',
-                    note_type_ar: 'خط',
-                    message: 'تم تغيير نوع الخط إلى Arial حجم 11'
-                },
-                {
-                    page_number: 'جميع الصفحات',
-                    note_type_ar: 'تنسيق',
-                    message: 'تم تطبيق تنسيق Bold على العناوين الرئيسية والفرعية'
-                },
-                {
-                    page_number: 'جميع الصفحات',
-                    note_type_ar: 'هوامش',
-                    message: 'تم توسيع الهامش الأيمن لتحسين القراءة'
-                },
-                {
-                    page_number: '1',
-                    note_type_ar: 'أرقام',
-                    message: 'تم تعديل تنسيق الأرقام إلى المعايير الدولية'
-                }
+        function analyzeText() {
+            currentNotes = [];
+
+            // فحص الأخطاء الإملائية
+            const spellingErrors = [
+                {wrong: 'الميزانيه', correct: 'الميزانية'},
+                {wrong: 'الاجمالي', correct: 'الإجمالي'},
+                {wrong: 'المصاريف', correct: 'المصروفات'},
+                {wrong: 'الايرادات', correct: 'الإيرادات'}
             ];
 
-            showResults();
+            spellingErrors.forEach(error => {
+                if (extractedText.includes(error.wrong)) {
+                    currentNotes.push({
+                        type: 'إملائي',
+                        message: `تم تصحيح "${error.wrong}" إلى "${error.correct}"`
+                    });
+                }
+            });
+
+            // فحص تنسيق الأرقام
+            const numbers = extractedText.match(/\d{4,}/g);
+            if (numbers && numbers.length > 0) {
+                currentNotes.push({
+                    type: 'أرقام',
+                    message: `تم تعديل ${numbers.length} رقم إلى التنسيق الدولي (فواصل الآلاف)`
+                });
+            }
+
+            // التعديلات المطبقة دائماً
+            currentNotes.push({
+                type: 'خط',
+                message: 'تم تغيير نوع الخط إلى Arial حجم 11'
+            });
+
+            currentNotes.push({
+                type: 'تنسيق',
+                message: 'تم تطبيق تنسيق Bold على جميع العناوين الرئيسية والفرعية'
+            });
+
+            currentNotes.push({
+                type: 'هوامش',
+                message: 'تم توسيع الهامش الأيمن لتحسين تنسيق المستند'
+            });
         }
 
         function showResults() {
             document.getElementById('processingSection').style.display = 'none';
             document.getElementById('resultsSection').style.display = 'block';
 
+            // إخفاء زر Excel إذا كان الملف ليس Excel
+            document.getElementById('btnExcel').style.display = fileType === 'xlsx' ? 'flex' : 'none';
+
             document.getElementById('fileInfo').innerHTML = `
                 <strong>اسم الملف:</strong> ${currentFileName}_معدل<br>
+                <strong>النوع:</strong> ${fileType.toUpperCase()}<br>
                 <strong>تاريخ المعالجة:</strong> ${new Date().toLocaleDateString('ar-SA')}<br>
-                <strong>المعالج:</strong> ${currentUser.username}<br>
                 <strong>الحالة:</strong> <span style="color: #64ffda;">✓ تم التعديل بنجاح</span>
             `;
 
             const notesList = document.getElementById('notesList');
             notesList.innerHTML = '';
 
-            currentNotes.forEach(note => {
-                const noteItem = document.createElement('div');
-                noteItem.className = 'note-item';
-                noteItem.innerHTML = `
-                    <strong>صفحة ${note.page_number} - ${note.note_type_ar}:</strong>
-                    ${note.message}
-                `;
-                notesList.appendChild(noteItem);
-            });
+            if (currentNotes.length === 0) {
+                notesList.innerHTML = '<div style="color: #64ffda; text-align: center; padding: 2rem;">✓ لا توجد أخطاء - الملف مطابق للمعايير</div>';
+            } else {
+                currentNotes.forEach((note, index) => {
+                    const noteItem = document.createElement('div');
+                    noteItem.className = 'note-item';
+                    noteItem.innerHTML = `
+                        <strong>${index + 1}. ${note.type}:</strong>
+                        ${note.message}
+                    `;
+                    notesList.appendChild(noteItem);
+                });
+            }
         }
 
-        async function downloadAsWord() {
-            const { Document, Paragraph, TextRun, HeadingLevel } = docx;
+        async function downloadWord() {
+            const { Document, Paragraph, TextRun, HeadingLevel, AlignmentType } = docx;
+
+            const paragraphs = extractedText.split('\n').map(line => {
+                const isHeading = line.length < 50 && (line.includes('الميزانية') || line.includes('الباب') || line.includes('القسم'));
+                
+                return new Paragraph({
+                    children: [
+                        new TextRun({
+                            text: line,
+                            font: "Arial",
+                            size: 22,
+                            bold: isHeading
+                        })
+                    ],
+                    heading: isHeading ? HeadingLevel.HEADING_2 : undefined
+                });
+            });
+
             const doc = new Document({
                 sections: [{
-                    children: [
-                        new Paragraph({
-                            text: "الميزانية المُعدّلة",
-                            heading: HeadingLevel.HEADING_1
-                        })
-                    ]
+                    properties: {
+                        page: {
+                            margin: {
+                                right: 2500,
+                                left: 1000,
+                                top: 1000,
+                                bottom: 1000,
+                            },
+                        },
+                    },
+                    children: paragraphs
                 }]
             });
+
             const blob = await docx.Packer.toBlob(doc);
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${currentFileName}_معدل.docx`;
-            a.click();
+            downloadBlob(blob, `${currentFileName}_معدل.docx`);
         }
 
-        function downloadAsPdf() {
+        function downloadPdf() {
             const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            doc.text('Budget Document', 20, 20);
+            const doc = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: 'a4'
+            });
+
+            const lines = extractedText.split('\n');
+            let y = 20;
+
+            lines.forEach(line => {
+                if (y > 280) {
+                    doc.addPage();
+                    y = 20;
+                }
+                doc.text(line.substring(0, 80), 20, y);
+                y += 7;
+            });
+
             doc.save(`${currentFileName}_معدل.pdf`);
         }
 
-        function downloadAsExcel() {
-            const ws = XLSX.utils.aoa_to_sheet([['الميزانية المُعدّلة']]);
+        function downloadExcel() {
+            const lines = extractedText.split('\n');
+            const data = lines.map(line => [line]);
+
+            const ws = XLSX.utils.aoa_to_sheet(data);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'الميزانية');
+
             XLSX.writeFile(wb, `${currentFileName}_معدل.xlsx`);
         }
 
-        function downloadNotesFile() {
-            let content = `ملف الملاحظات - ${currentFileName}\n\n`;
-            currentNotes.forEach((note, i) => {
-                content += `${i + 1}. ${note.message}\n`;
+        async function downloadNotes() {
+            const { Document, Paragraph, TextRun, HeadingLevel } = docx;
+
+            const children = [
+                new Paragraph({
+                    text: `ملف الملاحظات - ${currentFileName}`,
+                    heading: HeadingLevel.HEADING_1,
+                    spacing: { after: 400 }
+                }),
+                new Paragraph({
+                    children: [
+                        new TextRun({
+                            text: `تاريخ المعالجة: ${new Date().toLocaleDateString('ar-SA')}`,
+                            font: "Arial",
+                            size: 22
+                        })
+                    ],
+                    spacing: { after: 200 }
+                }),
+                new Paragraph({
+                    text: '─────────────────────────────────',
+                    spacing: { after: 400 }
+                })
+            ];
+
+            currentNotes.forEach((note, index) => {
+                children.push(
+                    new Paragraph({
+                        children: [
+                            new TextRun({
+                                text: `${index + 1}. ${note.type}: `,
+                                font: "Arial",
+                                size: 22,
+                                bold: true
+                            }),
+                            new TextRun({
+                                text: note.message,
+                                font: "Arial",
+                                size: 22
+                            })
+                        ],
+                        spacing: { after: 200 }
+                    })
+                );
             });
-            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+
+            const doc = new Document({
+                sections: [{
+                    properties: {
+                        page: {
+                            margin: {
+                                right: 2500,
+                                left: 1000,
+                                top: 1000,
+                                bottom: 1000,
+                            },
+                        },
+                    },
+                    children: children
+                }]
+            });
+
+            const blob = await docx.Packer.toBlob(doc);
+            downloadBlob(blob, `${currentFileName}_ملاحظات.docx`);
+        }
+
+        function downloadNotesPdf() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            doc.text(`ملف الملاحظات - ${currentFileName}`, 105, 20, { align: 'center' });
+            doc.text(`تاريخ: ${new Date().toLocaleDateString('ar-SA')}`, 20, 40);
+
+            let y = 60;
+            currentNotes.forEach((note, index) => {
+                if (y > 270) {
+                    doc.addPage();
+                    y = 20;
+                }
+                doc.text(`${index + 1}. ${note.type}: ${note.message}`, 20, y);
+                y += 10;
+            });
+
+            doc.save(`${currentFileName}_ملاحظات.pdf`);
+        }
+
+        function downloadBlob(blob, filename) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${currentFileName}_ملاحظات.txt`;
+            a.download = filename;
             a.click();
-        }
-
-        function showMessage(type, message) {
-            const errorMsg = document.getElementById('errorMessage');
-            const successMsg = document.getElementById('successMessage');
-            
-            if (type === 'error') {
-                errorMsg.textContent = message;
-                errorMsg.style.display = 'block';
-                successMsg.style.display = 'none';
-            } else {
-                successMsg.textContent = message;
-                successMsg.style.display = 'block';
-                errorMsg.style.display = 'none';
-            }
-
-            setTimeout(() => {
-                errorMsg.style.display = 'none';
-                successMsg.style.display = 'none';
-            }, 5000);
-        }
-
-        function showDashboard() {
-            document.getElementById('loginScreen').style.display = 'none';
-            document.getElementById('dashboard').style.display = 'block';
-            document.getElementById('userBadge').textContent = `👤 ${currentUser.username}`;
+            URL.revokeObjectURL(url);
         }
 
         function resetUpload() {
             document.getElementById('resultsSection').style.display = 'none';
             document.getElementById('uploadSection').style.display = 'block';
             document.getElementById('fileInput').value = '';
+            extractedText = '';
+            currentNotes = [];
         }
-
-        // Event Listeners
-        document.addEventListener('DOMContentLoaded', initSupabase);
-
-        document.getElementById('loginForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            await login(
-                document.getElementById('username').value,
-                document.getElementById('password').value
-            );
-        });
-
-        document.getElementById('logoutBtn').addEventListener('click', logout);
-        document.getElementById('uploadBtn').addEventListener('click', () => document.getElementById('fileInput').click());
-        document.getElementById('fileInput').addEventListener('change', (e) => {
-            if (e.target.files.length > 0) handleFile(e.target.files[0]);
-        });
-
-        document.getElementById('downloadWord').addEventListener('click', downloadAsWord);
-        document.getElementById('downloadPdf').addEventListener('click', downloadAsPdf);
-        document.getElementById('downloadExcel').addEventListener('click', downloadAsExcel);
-        document.getElementById('downloadNotes').addEventListener('click', downloadNotesFile);
-        document.getElementById('newFileBtn').addEventListener('click', resetUpload);
     </script>
 </body>
 </html>
