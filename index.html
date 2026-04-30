@@ -262,19 +262,34 @@
             return new Promise((resolve) => {
                 const reader = new FileReader();
 
-                reader.onload = function(e) {
+                reader.onload = async function(e) {
                     try {
                         if (ext === 'xlsx') {
                             const workbook = XLSX.read(e.target.result, {type: 'array'});
                             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                             extractedText = XLSX.utils.sheet_to_txt(firstSheet);
                         } else if (ext === 'docx') {
-                            extractedText = 'تم قراءة ملف Word بنجاح';
+                            // استخراج النص الفعلي من Word
+                            const arrayBuffer = e.target.result;
+                            const zip = await JSZip.loadAsync(arrayBuffer);
+                            const xml = await zip.file("word/document.xml").async("string");
+                            
+                            // استخراج كل النصوص من <w:t>
+                            const textMatches = xml.match(/<w:t[^>]*>([^<]*)<\/w:t>/g);
+                            if (textMatches) {
+                                const texts = textMatches.map(match => {
+                                    return match.replace(/<w:t[^>]*>/, '').replace(/<\/w:t>/, '');
+                                });
+                                extractedText = texts.join('');
+                            } else {
+                                extractedText = '';
+                            }
                         } else {
-                            extractedText = 'تم قراءة ملف PDF بنجاح';
+                            extractedText = 'محتوى PDF';
                         }
                     } catch (error) {
-                        extractedText = 'تم رفع الملف';
+                        console.error('خطأ في القراءة:', error);
+                        extractedText = '';
                     }
                     
                     analyzeText();
@@ -351,14 +366,14 @@
             }
 
             try {
-                // قراءة الملف الأصلي
+                // محاولة تعديل الملف الأصلي مباشرة
                 const arrayBuffer = await originalWordFile.arrayBuffer();
                 const zip = await JSZip.loadAsync(arrayBuffer);
 
                 // قراءة محتوى document.xml
                 let docXml = await zip.file("word/document.xml").async("string");
 
-                // التعديلات البسيطة والآمنة
+                // التعديلات الآمنة فقط
 
                 // 1. تغيير الخط إلى Arial
                 docXml = docXml.replace(/<w:rFonts[^\/]*\/>/g, '<w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>');
@@ -367,7 +382,7 @@
                 docXml = docXml.replace(/<w:sz w:val="\d+"\/>/g, '<w:sz w:val="22"/>');
                 docXml = docXml.replace(/<w:szCs w:val="\d+"\/>/g, '<w:szCs w:val="22"/>');
 
-                // 3. تصحيح الأخطاء الإملائية
+                // 3. تصحيح الأخطاء الإملائية في النص
                 docXml = docXml.replace(/الميزانيه/g, 'الميزانية');
                 docXml = docXml.replace(/الاجمالي/g, 'الإجمالي');
                 docXml = docXml.replace(/المصاريف/g, 'المصروفات');
@@ -385,33 +400,60 @@
                 saveAs(blob, `${currentFileName}_معدل.docx`);
 
             } catch (error) {
-                console.error('خطأ:', error);
-                // في حالة الخطأ، ننشئ ملف جديد بالمحتوى
-                downloadWordAlternative();
+                console.error('فشل تعديل الملف الأصلي، استخدام الطريقة البديلة:', error);
+                // إذا فشلت الطريقة الأولى، استخدم البديلة
+                await downloadWordAlternative();
             }
         }
 
-        // طريقة بديلة إذا فشلت الأولى
+        // طريقة بديلة - إنشاء Word من النص المستخرج
         async function downloadWordAlternative() {
             const { Document, Paragraph, TextRun, AlignmentType } = docx;
 
-            const lines = extractedText.split('\n').filter(l => l.trim());
-            const paragraphs = lines.map(line => {
-                const isHeading = line.includes('الباب') || line.includes('الميزانية') || line.includes('القسم');
-                
-                return new Paragraph({
-                    children: [
-                        new TextRun({
-                            text: line,
-                            font: { name: "Arial" },
-                            size: 22,
-                            bold: isHeading,
-                            rightToLeft: true
-                        })
-                    ],
-                    alignment: AlignmentType.RIGHT,
-                    rightToLeft: true
-                });
+            // تطبيق التصحيحات الإملائية
+            let correctedText = extractedText;
+            correctedText = correctedText.replace(/الميزانيه/g, 'الميزانية');
+            correctedText = correctedText.replace(/الاجمالي/g, 'الإجمالي');
+            correctedText = correctedText.replace(/المصاريف/g, 'المصروفات');
+            correctedText = correctedText.replace(/الايرادات/g, 'الإيرادات');
+
+            // تقسيم النص إلى أسطر
+            const lines = correctedText.split(/[\n\r]+/).filter(l => l.trim());
+            
+            const paragraphs = [];
+
+            lines.forEach(line => {
+                const trimmedLine = line.trim();
+                if (!trimmedLine) return;
+
+                // تحديد إذا كان السطر عنوان
+                const isHeading = 
+                    trimmedLine.includes('الباب') || 
+                    trimmedLine.includes('الفصل') ||
+                    trimmedLine.includes('القسم') ||
+                    trimmedLine.includes('الميزانية') ||
+                    trimmedLine.includes('الإجمالي') ||
+                    trimmedLine.includes('المجموع') ||
+                    trimmedLine.length < 50;
+
+                paragraphs.push(
+                    new Paragraph({
+                        children: [
+                            new TextRun({
+                                text: trimmedLine,
+                                font: { name: "Arial" },
+                                size: 22, // حجم 11
+                                bold: isHeading,
+                                rightToLeft: true
+                            })
+                        ],
+                        alignment: AlignmentType.RIGHT,
+                        rightToLeft: true,
+                        spacing: {
+                            after: 100
+                        }
+                    })
+                );
             });
 
             const doc = new Document({
@@ -420,13 +462,25 @@
                         page: {
                             margin: {
                                 top: 1000,
-                                right: 2500,
+                                right: 2500, // هامش أيمن موسع
                                 bottom: 1000,
                                 left: 1000
                             }
                         }
                     },
-                    children: paragraphs
+                    children: paragraphs.length > 0 ? paragraphs : [
+                        new Paragraph({
+                            children: [
+                                new TextRun({
+                                    text: correctedText || 'محتوى الملف',
+                                    font: { name: "Arial" },
+                                    size: 22,
+                                    rightToLeft: true
+                                })
+                            ],
+                            alignment: AlignmentType.RIGHT
+                        })
+                    ]
                 }]
             });
 
