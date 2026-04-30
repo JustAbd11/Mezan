@@ -16,7 +16,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/7.8.2/docx.min.js"></script>    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/7.8.2/docx.min.js"></script> 
+   
     <style>
         * {
             margin: 0;
@@ -590,54 +591,52 @@
         // ====================================
 
         async function login(username, password) {
-            try {
-                const loginBtn = document.getElementById('loginBtn');
-                loginBtn.disabled = true;
-                loginBtn.textContent = 'جاري تسجيل الدخول...';
+    try {
+        const loginBtn = document.getElementById('loginBtn');
+        loginBtn.disabled = true;
+        loginBtn.textContent = 'جاري تسجيل الدخول...';
 
-                // البحث عن المستخدم في قاعدة البيانات
-                const { data: admins, error } = await supabaseClient
-                    .from(SUPABASE_CONFIG.TABLES.ADMINS)
-                    .select('*')
-                    .eq('username', username)
-                    .eq('is_active', true)
-                    .single();
+        // استدعاء دالة PostgreSQL للتحقق من بيانات الدخول
+        const { data, error } = await supabaseClient.rpc('verify_admin_login', {
+            p_username: username,
+            p_password: password
+        });
 
-                if (error || !admins) {
-                    throw new Error('اسم المستخدم غير صحيح');
-                }
-
-                // التحقق من كلمة المرور
-                const isPasswordValid = await bcrypt.compare(password, admins.password_hash);
-                
-                if (!isPasswordValid) {
-                    throw new Error('كلمة المرور غير صحيحة');
-                }
-
-                // تحديث آخر تسجيل دخول
-                await supabaseClient
-                    .from(SUPABASE_CONFIG.TABLES.ADMINS)
-                    .update({ last_login: new Date().toISOString() })
-                    .eq('id', admins.id);
-
-                // تسجيل النشاط
-                await logActivity(admins.id, 'login', 'تسجيل دخول ناجح');
-
-                currentUser = admins;
-                showDashboard();
-                
-                loginBtn.disabled = false;
-                loginBtn.textContent = 'تسجيل الدخول';
-
-            } catch (error) {
-                console.error('خطأ في تسجيل الدخول:', error);
-                showMessage('error', error.message || 'فشل تسجيل الدخول');
-                
-                const loginBtn = document.getElementById('loginBtn');
-                loginBtn.disabled = false;
-                loginBtn.textContent = 'تسجيل الدخول';
-            }
+        if (error) {
+            console.error('RPC error:', error);
+            throw new Error('خطأ في الاتصال بقاعدة البيانات');
         }
+
+        if (!data || data.length === 0) {
+            throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
+        }
+
+        const admin = data[0]; // أول سطر ناتج من الدالة
+
+        // تحديث آخر تسجيل دخول
+        await supabaseClient
+            .from(SUPABASE_CONFIG.TABLES.ADMINS)
+            .update({ last_login: new Date().toISOString() })
+            .eq('id', admin.id);
+
+        // تسجيل النشاط
+        await logActivity(admin.id, 'login', 'تسجيل دخول ناجح');
+
+        currentUser = admin;
+        showDashboard();
+
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'تسجيل الدخول';
+
+    } catch (error) {
+        console.error('خطأ في تسجيل الدخول:', error);
+        showMessage('error', error.message || 'فشل تسجيل الدخول');
+        
+        const loginBtn = document.getElementById('loginBtn');
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'تسجيل الدخول';
+    }
+}
 
         async function logout() {
             if (currentUser) {
