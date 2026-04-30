@@ -6,6 +6,8 @@
     <title>نظام تعديل الميزانية</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/docx@7.8.2/build/index.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
@@ -203,6 +205,7 @@
         let currentNotes = [];
         let extractedText = '';
         let fileType = '';
+        let originalWordFile = null; // حفظ الملف الأصلي
 
         // تسجيل الدخول
         document.getElementById('loginForm').addEventListener('submit', function(e) {
@@ -238,6 +241,7 @@
 
             currentFileName = file.name.substring(0, file.name.lastIndexOf('.'));
             fileType = ext;
+            originalWordFile = file; // حفظ الملف الأصلي
 
             document.getElementById('uploadSection').style.display = 'none';
             document.getElementById('processingSection').style.display = 'block';
@@ -341,45 +345,71 @@
         }
 
         async function downloadWord() {
-            const { Document, Paragraph, TextRun, AlignmentType } = docx;
+            if (!originalWordFile) {
+                alert('الملف الأصلي غير موجود');
+                return;
+            }
 
-            const lines = extractedText.split('\n').filter(l => l.trim());
-            const paragraphs = lines.map(line => {
-                const isHeading = line.length < 50 || line.includes('الباب') || line.includes('الميزانية');
+            try {
+                // قراءة الملف الأصلي
+                const arrayBuffer = await originalWordFile.arrayBuffer();
+                const zip = await JSZip.loadAsync(arrayBuffer);
+
+                // قراءة محتوى document.xml
+                let docXml = await zip.file("word/document.xml").async("string");
+
+                // تطبيق التعديلات على XML
                 
-                return new Paragraph({
-                    children: [
-                        new TextRun({
-                            text: line,
-                            font: { name: "Arial" },
-                            size: 22,
-                            bold: isHeading,
-                            rightToLeft: true
-                        })
-                    ],
-                    alignment: AlignmentType.RIGHT,
-                    rightToLeft: true
+                // 1. تغيير الخط إلى Arial حجم 11 (22 half-points)
+                docXml = docXml.replace(/<w:rFonts[^>]*>/g, '<w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:eastAsia="Arial" w:cs="Arial"/>');
+                docXml = docXml.replace(/<w:sz w:val="\d+"/g, '<w:sz w:val="22"');
+                docXml = docXml.replace(/<w:szCs w:val="\d+"/g, '<w:szCs w:val="22"');
+
+                // 2. إضافة Bold للعناوين (النصوص القصيرة أو التي تحتوي على كلمات معينة)
+                // نبحث عن الفقرات ونضيف Bold للعناوين
+                docXml = docXml.replace(/(<w:pStyle w:val="[^"]*Heading[^"]*"[^>]*>)/g, function(match) {
+                    return match + '<w:rPr><w:b/><w:bCs/></w:rPr>';
                 });
-            });
 
-            const doc = new Document({
-                sections: [{
-                    properties: {
-                        page: {
-                            margin: {
-                                top: 1000,
-                                right: 2500,
-                                bottom: 1000,
-                                left: 1000
-                            }
-                        }
-                    },
-                    children: paragraphs
-                }]
-            });
+                // إضافة Bold للنصوص التي تحتوي على كلمات عناوين
+                const headingWords = ['الباب', 'الفصل', 'القسم', 'الميزانية', 'الإجمالي', 'المجموع'];
+                headingWords.forEach(word => {
+                    const regex = new RegExp(`(<w:t[^>]*>)(${word}[^<]*)(</w:t>)`, 'g');
+                    docXml = docXml.replace(regex, function(match, p1, p2, p3) {
+                        return `<w:rPr><w:b/><w:bCs/></w:rPr>${p1}${p2}${p3}`;
+                    });
+                });
 
-            const blob = await docx.Packer.toBlob(doc);
-            downloadBlob(blob, `${currentFileName}_معدل.docx`);
+                // 3. توسيع الهامش الأيمن في settings
+                const settingsXml = await zip.file("word/settings.xml")?.async("string");
+                if (settingsXml) {
+                    // يمكن تعديل الإعدادات هنا إذا لزم الأمر
+                }
+
+                // 4. تصحيح الأخطاء الإملائية
+                const corrections = [
+                    {wrong: 'الميزانيه', correct: 'الميزانية'},
+                    {wrong: 'الاجمالي', correct: 'الإجمالي'},
+                    {wrong: 'المصاريف', correct: 'المصروفات'},
+                    {wrong: 'الايرادات', correct: 'الإيرادات'}
+                ];
+
+                corrections.forEach(({wrong, correct}) => {
+                    const regex = new RegExp(`(>[^<]*)${wrong}([^<]*<)`, 'g');
+                    docXml = docXml.replace(regex, `$1${correct}$2`);
+                });
+
+                // حفظ التعديلات
+                zip.file("word/document.xml", docXml);
+
+                // توليد الملف الجديد
+                const blob = await zip.generateAsync({type: "blob"});
+                saveAs(blob, `${currentFileName}_معدل.docx`);
+
+            } catch (error) {
+                console.error('خطأ في معالجة Word:', error);
+                alert('حدث خطأ في تعديل الملف. تأكد من أن الملف بصيغة .docx صحيحة');
+            }
         }
 
         function downloadPdf() {
@@ -501,6 +531,7 @@
             document.getElementById('fileInput').value = '';
             extractedText = '';
             currentNotes = [];
+            originalWordFile = null;
         }
     </script>
 </body>
