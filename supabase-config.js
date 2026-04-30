@@ -10,7 +10,7 @@
 const SUPABASE_CONFIG = {
     // URL الخاص بمشروع Supabase
     // يمكن الحصول عليه من: Project Settings > API > Project URL
-    SUPABASE_URL: 'https://ddrnvybfvdxozmmurzpu.supabase.c',
+    SUPABASE_URL: 'https://ddrnvybfvdxozmmurzpu.supabase.co',
     
     // المفتاح العام (anon key)
     // يمكن الحصول عليه من: Project Settings > API > Project API keys > anon public
