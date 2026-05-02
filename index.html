@@ -6,7 +6,7 @@
     <title>نظام تعديل الميزانية</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.4/dist/pizzip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://unpkg.com/docx@7.8.2/build/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -402,42 +402,43 @@
 
                     try {
                         if (fileType === 'docx') {
-                            console.log('🔧 محاولة فتح ملف Word...');
-                            const zip = new PizZip(content);
+                            console.log('🔧 استخدام JSZip لفتح ملف Word...');
+                            
+                            // استخدام JSZip بدلاً من PizZip
+                            const zip = await JSZip.loadAsync(content);
                             
                             const allFiles = Object.keys(zip.files);
                             console.log('📁 عدد الملفات في ZIP:', allFiles.length);
-                            console.log('📁 أول 10 ملفات:', allFiles.slice(0, 10));
+                            console.log('📁 جميع الملفات:', allFiles);
                             
-                            // البحث عن document.xml بطرق مختلفة
-                            let docXmlPath = null;
+                            // البحث عن document.xml
+                            let docXmlFile = zip.file("word/document.xml");
                             
-                            if (zip.files["word/document.xml"]) {
-                                docXmlPath = "word/document.xml";
-                            } else {
-                                // البحث في كل الملفات
-                                docXmlPath = allFiles.find(f => 
-                                    f.toLowerCase().endsWith('document.xml')
-                                );
+                            if (!docXmlFile) {
+                                // محاولة البحث بطريقة أخرى
+                                const docPath = allFiles.find(f => f.toLowerCase().endsWith('document.xml'));
+                                if (docPath) {
+                                    docXmlFile = zip.file(docPath);
+                                }
                             }
                             
-                            console.log('🔍 مسار document.xml:', docXmlPath);
-                            
-                            if (!docXmlPath) {
+                            if (!docXmlFile) {
                                 console.error('❌ لم يتم العثور على document.xml');
-                                console.log('جميع الملفات:', allFiles);
+                                console.log('الملفات الموجودة:', allFiles);
                                 throw new Error('ملف Word تالف - لا يحتوي على document.xml');
                             }
                             
-                            // قراءة XML
-                            const xml = await zip.files[docXmlPath].async("string");
+                            console.log('✅ تم العثور على document.xml');
+                            
+                            // قراءة محتوى XML
+                            const xml = await docXmlFile.async("string");
                             console.log('✅ تم قراءة XML - الحجم:', xml.length, 'حرف');
                             
                             // استخراج النصوص
                             const textRegex = /<w:t[^>]*>([^<]+)<\/w:t>/g;
                             const textMatches = [...xml.matchAll(textRegex)];
                             
-                            console.log('📝 عدد النصوص:', textMatches.length);
+                            console.log('📝 عدد النصوص المستخرجة:', textMatches.length);
                             
                             if (textMatches.length === 0) {
                                 console.warn('⚠️ الملف لا يحتوي على نصوص');
@@ -445,8 +446,8 @@
                             } else {
                                 const texts = textMatches.map(match => match[1]);
                                 extractedText = texts.join(' ');
-                                console.log('✅ أول 100 حرف:', extractedText.substring(0, 100));
-                                console.log('✅ إجمالي:', extractedText.length, 'حرف');
+                                console.log('✅ أول 150 حرف:', extractedText.substring(0, 150));
+                                console.log('✅ إجمالي الأحرف:', extractedText.length);
                             }
                             
                         } else if (fileType === 'xlsx') {
@@ -456,10 +457,12 @@
                             console.log('✅ تم قراءة Excel');
                         }
                         
+                        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                         resolve();
                     } catch (error) {
                         console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                         console.error('❌ خطأ:', error.message);
+                        console.error('التفاصيل:', error);
                         console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                         reject(error);
                     }
