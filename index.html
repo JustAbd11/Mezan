@@ -397,23 +397,29 @@
                         if (fileType === 'docx') {
                             const zip = new PizZip(content);
                             
-                            // التحقق من وجود الملف
-                            if (!zip.files["word/document.xml"]) {
-                                throw new Error('ملف Word تالف - لا يحتوي على document.xml');
+                            console.log('📁 ملفات داخل ZIP:', Object.keys(zip.files));
+                            
+                            // محاولة القراءة بطريقة مختلفة
+                            let xml = '';
+                            
+                            if (zip.files["word/document.xml"]) {
+                                xml = await zip.files["word/document.xml"].async("string");
+                            } else {
+                                throw new Error('الملف لا يحتوي على document.xml');
                             }
                             
-                            // قراءة XML بالطريقة الصحيحة
-                            const xml = await zip.file("word/document.xml").async("string");
-                            
+                            // استخراج النصوص
                             const textRegex = /<w:t[^>]*>([^<]+)<\/w:t>/g;
-                            const matches = xml.matchAll(textRegex);
+                            const textMatches = [...xml.matchAll(textRegex)];
                             
-                            const texts = [];
-                            for (const match of matches) {
-                                texts.push(match[1]);
+                            if (textMatches.length === 0) {
+                                console.warn('⚠️ لم يتم العثور على نصوص في الملف');
+                                extractedText = 'ملف فارغ أو لا يحتوي على نصوص';
+                            } else {
+                                const texts = textMatches.map(match => match[1]);
+                                extractedText = texts.join(' ');
+                                console.log('✅ تم استخراج', textMatches.length, 'نص');
                             }
-                            
-                            extractedText = texts.join(' ');
                             console.log('✅ تم استخراج النص:', extractedText.length, 'حرف');
                             
                         } else if (fileType === 'xlsx') {
