@@ -6,7 +6,6 @@
     <title>نظام تعديل الميزانية</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <script src="https://unpkg.com/docx@7.8.2/build/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -59,7 +58,6 @@
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .message { padding: 0.8rem; border-radius: 8px; margin-bottom: 1rem; text-align: center; display: none; }
         .error { background: rgba(255, 87, 87, 0.1); border: 1px solid rgba(255, 87, 87, 0.3); color: #ff5757; }
-        .success { background: rgba(100, 255, 218, 0.1); border: 1px solid rgba(100, 255, 218, 0.3); color: #64ffda; }
         .dashboard { display: none; }
         .dashboard-header {
             display: flex;
@@ -143,7 +141,6 @@
         <div class="login-box">
             <h1>🏦 نظام تعديل الميزانية</h1>
             <div class="message error" id="errorMessage"></div>
-            <div class="message success" id="successMessage"></div>
             <form id="loginForm">
                 <div class="form-group">
                     <label>اسم المستخدم</label>
@@ -168,16 +165,14 @@
             <div class="upload-section" id="uploadSection">
                 <div class="upload-icon">📊</div>
                 <h2>رفع ملف الميزانية</h2>
-                <p style="color: #8892b0; margin: 1rem 0;">سيتم رفع الملف إلى قاعدة البيانات ومعالجته تلقائياً</p>
-                <p style="color: #64ffda; font-size: 0.9rem;">Word (.docx) | Excel (.xlsx)</p>
+                <p style="color: #8892b0; margin: 1rem 0;">Word (.docx) | Excel (.xlsx)</p>
                 <input type="file" class="file-input" id="fileInput" accept=".docx,.xlsx">
                 <button class="btn" style="width: auto; padding: 1rem 3rem;" onclick="document.getElementById('fileInput').click()">اختيار ملف</button>
             </div>
 
             <div class="processing-section" id="processingSection">
                 <div class="spinner"></div>
-                <h3 style="color: #ccd6f6;" id="processingText">جاري رفع الملف إلى قاعدة البيانات...</h3>
-                <p style="color: #8892b0; margin-top: 1rem;" id="processingDetails"></p>
+                <h3 style="color: #ccd6f6;" id="processingText">جاري معالجة الملف...</h3>
             </div>
 
             <div class="results-section" id="resultsSection">
@@ -212,7 +207,6 @@
         let fileType = '';
         let uploadedFileId = null;
 
-        // تهيئة Supabase
         function initSupabase() {
             try {
                 supabaseClient = supabase.createClient(
@@ -225,7 +219,6 @@
             }
         }
 
-        // تسجيل الدخول
         document.getElementById('loginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -237,51 +230,27 @@
             loginBtn.textContent = 'جاري التحقق...';
 
             try {
-                console.log('🔍 محاولة تسجيل الدخول:', username);
-                
-                // البحث عن المستخدم - بدون فلتر is_active أولاً
                 const { data: admins, error } = await supabaseClient
                     .from('admins')
                     .select('*')
                     .eq('username', username);
 
-                console.log('📊 نتيجة البحث:', { admins, error });
-
-                if (error) {
-                    console.error('❌ خطأ من Supabase:', error);
-                    throw new Error('خطأ في الاتصال بقاعدة البيانات: ' + error.message);
-                }
-
-                if (!admins || admins.length === 0) {
+                if (error || !admins || admins.length === 0) {
                     throw new Error('اسم المستخدم غير موجود');
                 }
 
                 const user = admins[0];
+                if (!user.is_active) throw new Error('الحساب غير نشط');
+                if (user.password_hash !== password) throw new Error('كلمة المرور خاطئة');
 
-                // التحقق من أن الحساب نشط
-                if (!user.is_active) {
-                    throw new Error('هذا الحساب غير نشط');
-                }
-
-                // التحقق من كلمة المرور
-                if (user.password_hash !== password) {
-                    throw new Error('كلمة المرور غير صحيحة');
-                }
-
-                console.log('✅ تم تسجيل الدخول بنجاح');
                 currentUser = user;
                 document.getElementById('loginScreen').style.display = 'none';
                 document.getElementById('dashboard').style.display = 'block';
 
             } catch (error) {
-                console.error('❌ خطأ في تسجيل الدخول:', error);
-                const errorMsg = document.getElementById('errorMessage');
-                errorMsg.textContent = error.message;
-                errorMsg.style.display = 'block';
-                
-                setTimeout(() => {
-                    errorMsg.style.display = 'none';
-                }, 5000);
+                document.getElementById('errorMessage').textContent = error.message;
+                document.getElementById('errorMessage').style.display = 'block';
+                setTimeout(() => document.getElementById('errorMessage').style.display = 'none', 3000);
             } finally {
                 loginBtn.disabled = false;
                 loginBtn.textContent = 'تسجيل الدخول';
@@ -295,7 +264,6 @@
             resetUpload();
         }
 
-        // معالجة رفع الملف
         document.getElementById('fileInput').addEventListener('change', async function(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -311,210 +279,88 @@
 
             document.getElementById('uploadSection').style.display = 'none';
             document.getElementById('processingSection').style.display = 'block';
-            document.getElementById('processingText').textContent = 'جاري رفع الملف إلى قاعدة البيانات...';
-            document.getElementById('processingDetails').textContent = 'الخطوة 1/4: رفع الملف';
+            document.getElementById('processingText').textContent = 'جاري قراءة الملف...';
 
-            try {
-                // الخطوة 1: رفع الملف وحفظه في قاعدة البيانات
-                await uploadAndProcessFile(file);
-            } catch (error) {
-                console.error('خطأ:', error);
-                alert('حدث خطأ: ' + error.message);
-                resetUpload();
-            }
+            setTimeout(async () => {
+                try {
+                    await processFile(file);
+                    await saveToDatabase();
+                    showResults();
+                } catch (error) {
+                    console.error(error);
+                    alert('خطأ: ' + error.message);
+                    resetUpload();
+                }
+            }, 500);
         });
 
-        async function uploadAndProcessFile(file) {
-            try {
-                // الخطوة 1: حفظ معلومات الملف في جدول uploaded_files
-                document.getElementById('processingDetails').textContent = 'الخطوة 1/4: حفظ معلومات الملف...';
-                
-                const { data: fileRecord, error: insertError } = await supabaseClient
-                    .from('uploaded_files')
-                    .insert({
-                        admin_id: currentUser.id,
-                        original_filename: file.name,
-                        file_type: fileType,
-                        file_size: file.size,
-                        file_path: `uploads/${currentUser.id}/${Date.now()}_${file.name}`,
-                        status: 'processing',
-                        processing_started_at: new Date().toISOString()
-                    })
-                    .select()
-                    .single();
-
-                if (insertError) throw insertError;
-                
-                uploadedFileId = fileRecord.id;
-                console.log('✅ تم حفظ معلومات الملف:', fileRecord);
-
-                // الخطوة 2: قراءة محتوى الملف
-                document.getElementById('processingDetails').textContent = 'الخطوة 2/4: قراءة محتوى الملف...';
-                await readFileContent(file);
-
-                // الخطوة 3: تحليل الملف واستخراج الأخطاء
-                document.getElementById('processingDetails').textContent = 'الخطوة 3/4: تحليل المحتوى...';
-                analyzeText();
-
-                // الخطوة 4: حفظ الملاحظات في قاعدة البيانات
-                document.getElementById('processingDetails').textContent = 'الخطوة 4/4: حفظ الملاحظات...';
-                await saveNotes();
-
-                // تحديث حالة الملف إلى completed
-                await supabaseClient
-                    .from('uploaded_files')
-                    .update({
-                        status: 'completed',
-                        processing_completed_at: new Date().toISOString()
-                    })
-                    .eq('id', uploadedFileId);
-
-                console.log('✅ تمت معالجة الملف بنجاح');
-                
-                // عرض النتائج
-                showResults();
-
-            } catch (error) {
-                // تحديث حالة الملف إلى failed
-                if (uploadedFileId) {
-                    await supabaseClient
-                        .from('uploaded_files')
-                        .update({ status: 'failed' })
-                        .eq('id', uploadedFileId);
-                }
-                throw error;
-            }
-        }
-
-        async function readFileContent(file) {
-            return new Promise((resolve, reject) => {
+        async function processFile(file) {
+            const text = await file.text();
+            
+            if (fileType === 'xlsx') {
                 const reader = new FileReader();
-
-                reader.onload = async function(e) {
-                    const content = e.target.result;
-                    
-                    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-                    console.log('📂 معلومات الملف:');
-                    console.log('الاسم:', file.name);
-                    console.log('النوع:', fileType);
-                    console.log('الحجم:', file.size, 'بايت');
-                    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-
-                    try {
-                        if (fileType === 'docx') {
-                            console.log('🔧 استخدام Mammoth.js لقراءة Word...');
-                            
-                            // استخدام mammoth - الأبسط والأفضل
-                            const result = await mammoth.extractRawText({
-                                arrayBuffer: content
-                            });
-                            
-                            extractedText = result.value;
-                            
-                            console.log('✅ تم استخراج النص بنجاح!');
-                            console.log('📝 عدد الأحرف:', extractedText.length);
-                            console.log('📄 أول 200 حرف:', extractedText.substring(0, 200));
-                            
-                            if (result.messages && result.messages.length > 0) {
-                                console.log('⚠️ رسائل:', result.messages);
-                            }
-                            
-                            if (!extractedText || extractedText.trim().length === 0) {
-                                console.warn('⚠️ الملف فارغ');
-                                extractedText = 'ملف فارغ - لا يحتوي على نصوص';
-                            }
-                            
-                        } else if (fileType === 'xlsx') {
-                            console.log('📊 قراءة Excel...');
-                            const workbook = XLSX.read(content, {type: 'array'});
-                            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                            extractedText = XLSX.utils.sheet_to_txt(firstSheet);
-                            console.log('✅ تم قراءة Excel بنجاح');
-                        }
-                        
-                        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                return new Promise((resolve) => {
+                    reader.onload = (e) => {
+                        const workbook = XLSX.read(e.target.result, {type: 'array'});
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        extractedText = XLSX.utils.sheet_to_txt(firstSheet);
+                        console.log('✅ Excel:', extractedText.length, 'حرف');
                         resolve();
-                        
-                    } catch (error) {
-                        console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-                        console.error('❌ خطأ في القراءة:');
-                        console.error('الرسالة:', error.message);
-                        console.error('النوع:', error.name);
-                        console.error('التفاصيل الكاملة:', error);
-                        console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-                        reject(error);
-                    }
-                };
-
-                reader.onerror = (error) => {
-                    console.error('❌ خطأ في FileReader:', error);
-                    reject(error);
-                };
-                
-                reader.readAsArrayBuffer(file);
-            });
+                    };
+                    reader.readAsArrayBuffer(file);
+                });
+            } else {
+                // Word: نص بسيط من المحتوى
+                extractedText = text.replace(/[^\u0600-\u06FF\u0750-\u077F\u0870-\u089F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\d\s]/g, ' ').trim();
+                console.log('✅ Word:', extractedText.length, 'حرف');
+            }
+            
+            analyzeText();
         }
 
         function analyzeText() {
             currentNotes = [];
-
-            const spellingErrors = [
+            const errors = [
                 {wrong: 'الميزانيه', correct: 'الميزانية'},
-                {wrong: 'الاجمالي', correct: 'الإجمالي'},
-                {wrong: 'المصاريف', correct: 'المصروفات'},
-                {wrong: 'الايرادات', correct: 'الإيرادات'}
+                {wrong: 'الاجمالي', correct: 'الإجمالي'}
             ];
-
-            spellingErrors.forEach(error => {
-                if (extractedText.includes(error.wrong)) {
+            
+            errors.forEach(e => {
+                if (extractedText.includes(e.wrong)) {
                     currentNotes.push({
-                        note_type: 'spelling',
-                        note_type_ar: 'خطأ إملائي',
-                        original_text: error.wrong,
-                        corrected_text: error.correct,
-                        message: `تم تصحيح "${error.wrong}" إلى "${error.correct}"`,
-                        severity: 'warning'
+                        type: 'إملائي',
+                        message: `تصحيح "${e.wrong}" → "${e.correct}"`
                     });
                 }
             });
-
-            const numbers = extractedText.match(/\d{4,}/g);
-            if (numbers && numbers.length > 0) {
-                currentNotes.push({
-                    note_type: 'numbers',
-                    note_type_ar: 'تنسيق أرقام',
-                    message: `تم تعديل ${numbers.length} رقم إلى التنسيق الدولي`,
-                    severity: 'info'
-                });
-            }
-
-            console.log('✅ تم تحليل النص:', currentNotes.length, 'ملاحظة');
         }
 
-        async function saveNotes() {
-            if (currentNotes.length === 0) {
-                console.log('ℹ️ لا توجد ملاحظات لحفظها');
-                return;
-            }
-
-            const notesToInsert = currentNotes.map(note => ({
-                uploaded_file_id: uploadedFileId,
-                page_number: '1',
-                note_type: note.note_type,
-                note_type_ar: note.note_type_ar,
-                original_text: note.original_text || null,
-                corrected_text: note.corrected_text || null,
-                message: note.message,
-                severity: note.severity
-            }));
-
-            const { error } = await supabaseClient
-                .from('file_notes')
-                .insert(notesToInsert);
+        async function saveToDatabase() {
+            document.getElementById('processingText').textContent = 'جاري الحفظ في قاعدة البيانات...';
+            
+            const { data, error } = await supabaseClient
+                .from('uploaded_files')
+                .insert({
+                    admin_id: currentUser.id,
+                    original_filename: currentFileName + '.' + fileType,
+                    file_type: fileType,
+                    status: 'completed'
+                })
+                .select()
+                .single();
 
             if (error) throw error;
-            
-            console.log('✅ تم حفظ الملاحظات في قاعدة البيانات');
+            uploadedFileId = data.id;
+
+            if (currentNotes.length > 0) {
+                await supabaseClient
+                    .from('file_notes')
+                    .insert(currentNotes.map(n => ({
+                        uploaded_file_id: uploadedFileId,
+                        note_type: 'spelling',
+                        message: n.message
+                    })));
+            }
         }
 
         function showResults() {
@@ -525,79 +371,46 @@
 
             document.getElementById('fileInfo').innerHTML = `
                 <strong>الملف:</strong> ${currentFileName}_معدل<br>
-                <strong>النوع:</strong> ${fileType.toUpperCase()}<br>
-                <strong>التاريخ:</strong> ${new Date().toLocaleDateString('ar-SA')}<br>
-                <strong>الحالة:</strong> <span style="color: #64ffda;">✓ تم المعالجة</span><br>
-                <strong>المحتوى:</strong> ${extractedText.length} حرف<br>
-                <strong>المعالج:</strong> ${currentUser.username}
+                <strong>الأحرف:</strong> ${extractedText.length}<br>
+                <strong>الحالة:</strong> <span style="color: #64ffda;">✓ تم</span>
             `;
 
             const notesList = document.getElementById('notesList');
-            notesList.innerHTML = '';
-
             if (currentNotes.length === 0) {
-                notesList.innerHTML = '<div style="color: #64ffda; text-align: center; padding: 2rem;">✓ لا توجد أخطاء إملائية أو أرقام غير منسقة</div>';
+                notesList.innerHTML = '<div style="color: #64ffda; text-align: center; padding: 2rem;">✓ لا توجد أخطاء</div>';
             } else {
-                currentNotes.forEach((note, index) => {
-                    notesList.innerHTML += `
-                        <div class="note-item">
-                            <strong>${index + 1}. ${note.note_type_ar}:</strong>
-                            ${note.message}
-                        </div>
-                    `;
-                });
+                notesList.innerHTML = currentNotes.map((n, i) => `
+                    <div class="note-item">
+                        <strong>${i + 1}. ${n.type}:</strong>
+                        ${n.message}
+                    </div>
+                `).join('');
             }
         }
 
         async function downloadWord() {
             const { Document, Paragraph, TextRun, AlignmentType } = docx;
-
+            
             let text = extractedText;
             text = text.replace(/الميزانيه/g, 'الميزانية');
-            text = text.replace(/الاجمالي/g, 'الإجمالي');
-            text = text.replace(/المصاريف/g, 'المصروفات');
-            text = text.replace(/الايرادات/g, 'الإيرادات');
-
-            const parts = text.split(/\n+/);
-            const paragraphs = [];
-
-            parts.forEach(part => {
-                if (!part.trim()) return;
-
-                const isHeading = 
-                    part.includes('الباب') || 
-                    part.includes('الفصل') ||
-                    part.includes('الميزانية') ||
-                    part.length < 60;
-
-                paragraphs.push(
-                    new Paragraph({
-                        children: [
-                            new TextRun({
-                                text: part.trim(),
-                                font: { name: "Arial" },
-                                size: 22,
-                                bold: isHeading,
-                                rightToLeft: true
-                            })
-                        ],
-                        alignment: AlignmentType.RIGHT,
-                        rightToLeft: true,
-                        spacing: { after: 120 }
-                    })
-                );
-            });
+            
+            const lines = text.split(/\n+/);
+            const paragraphs = lines.map(line => new Paragraph({
+                children: [new TextRun({
+                    text: line.trim(),
+                    font: { name: "Arial" },
+                    size: 22,
+                    rightToLeft: true
+                })],
+                alignment: AlignmentType.RIGHT,
+                rightToLeft: true
+            }));
 
             const doc = new Document({
                 sections: [{
                     properties: {
                         page: {
-                            margin: {
-                                top: 1000,
-                                right: 2500,
-                                bottom: 1000,
-                                left: 1000
-                            }
+                            margin: { top: 1000, right: 2500, bottom: 1000, left: 1000 }
                         }
                     },
                     children: paragraphs
@@ -609,74 +422,27 @@
         }
 
         function downloadExcel() {
-            const lines = extractedText.split('\n').filter(l => l.trim());
-            const data = lines.map(line => [line]);
-
-            const ws = XLSX.utils.aoa_to_sheet(data);
+            const lines = extractedText.split('\n');
+            const ws = XLSX.utils.aoa_to_sheet(lines.map(l => [l]));
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'الميزانية');
-
             XLSX.writeFile(wb, `${currentFileName}_معدل.xlsx`);
         }
 
         async function downloadNotesWord() {
             const { Document, Paragraph, TextRun, AlignmentType } = docx;
+            
+            const paragraphs = currentNotes.map((n, i) => new Paragraph({
+                children: [new TextRun({
+                    text: `${i + 1}. ${n.type}: ${n.message}`,
+                    font: { name: "Arial" },
+                    size: 22,
+                    rightToLeft: true
+                })],
+                alignment: AlignmentType.RIGHT
+            }));
 
-            const paragraphs = [
-                new Paragraph({
-                    children: [
-                        new TextRun({
-                            text: `ملف الملاحظات - ${currentFileName}`,
-                            font: { name: "Arial" },
-                            size: 28,
-                            bold: true,
-                            rightToLeft: true
-                        })
-                    ],
-                    alignment: AlignmentType.RIGHT,
-                    spacing: { after: 400 }
-                })
-            ];
-
-            if (currentNotes.length === 0) {
-                paragraphs.push(
-                    new Paragraph({
-                        children: [
-                            new TextRun({
-                                text: 'لا توجد أخطاء إملائية أو أرقام غير منسقة',
-                                font: { name: "Arial" },
-                                size: 22,
-                                rightToLeft: true
-                            })
-                        ],
-                        alignment: AlignmentType.RIGHT
-                    })
-                );
-            } else {
-                currentNotes.forEach((note, i) => {
-                    paragraphs.push(
-                        new Paragraph({
-                            children: [
-                                new TextRun({
-                                    text: `${i + 1}. ${note.note_type_ar}: ${note.message}`,
-                                    font: { name: "Arial" },
-                                    size: 22,
-                                    rightToLeft: true
-                                })
-                            ],
-                            alignment: AlignmentType.RIGHT,
-                            spacing: { after: 200 }
-                        })
-                    );
-                });
-            }
-
-            const doc = new Document({
-                sections: [{
-                    children: paragraphs
-                }]
-            });
-
+            const doc = new Document({ sections: [{ children: paragraphs }] });
             const blob = await docx.Packer.toBlob(doc);
             saveAs(blob, `${currentFileName}_ملاحظات.docx`);
         }
@@ -687,10 +453,8 @@
             document.getElementById('fileInput').value = '';
             extractedText = '';
             currentNotes = [];
-            uploadedFileId = null;
         }
 
-        // تهيئة النظام
         window.addEventListener('DOMContentLoaded', initSupabase);
     </script>
 </body>
