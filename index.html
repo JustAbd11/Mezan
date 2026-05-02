@@ -396,8 +396,14 @@
                     try {
                         if (fileType === 'docx') {
                             const zip = new PizZip(content);
-                            const xmlFile = zip.files["word/document.xml"];
-                            const xml = await xmlFile.async("string");
+                            
+                            // التحقق من وجود الملف
+                            if (!zip.files["word/document.xml"]) {
+                                throw new Error('ملف Word تالف - لا يحتوي على document.xml');
+                            }
+                            
+                            // قراءة XML بالطريقة الصحيحة
+                            const xml = await zip.file("word/document.xml").async("string");
                             
                             const textRegex = /<w:t[^>]*>([^<]+)<\/w:t>/g;
                             const matches = xml.matchAll(textRegex);
