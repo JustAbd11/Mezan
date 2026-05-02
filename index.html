@@ -338,28 +338,49 @@
         async function saveToDatabase() {
             document.getElementById('processingText').textContent = 'جاري الحفظ في قاعدة البيانات...';
             
-            const { data, error } = await supabaseClient
-                .from('uploaded_files')
-                .insert({
-                    admin_id: currentUser.id,
-                    original_filename: currentFileName + '.' + fileType,
-                    file_type: fileType,
-                    status: 'completed'
-                })
-                .select()
-                .single();
+            try {
+                const { data, error } = await supabaseClient
+                    .from('uploaded_files')
+                    .insert({
+                        admin_id: currentUser.id,
+                        original_filename: currentFileName + '.' + fileType,
+                        file_type: fileType,
+                        file_size: 0,
+                        file_path: 'temp/' + currentFileName,
+                        status: 'completed',
+                        processing_started_at: new Date().toISOString(),
+                        processing_completed_at: new Date().toISOString()
+                    })
+                    .select()
+                    .single();
 
-            if (error) throw error;
-            uploadedFileId = data.id;
+                if (error) {
+                    console.error('❌ خطأ في الحفظ:', error);
+                    throw error;
+                }
+                
+                uploadedFileId = data.id;
+                console.log('✅ تم الحفظ - ID:', uploadedFileId);
 
-            if (currentNotes.length > 0) {
-                await supabaseClient
-                    .from('file_notes')
-                    .insert(currentNotes.map(n => ({
-                        uploaded_file_id: uploadedFileId,
-                        note_type: 'spelling',
-                        message: n.message
-                    })));
+                if (currentNotes.length > 0) {
+                    const { error: notesError } = await supabaseClient
+                        .from('file_notes')
+                        .insert(currentNotes.map(n => ({
+                            uploaded_file_id: uploadedFileId,
+                            page_number: '1',
+                            note_type: 'spelling',
+                            note_type_ar: n.type,
+                            message: n.message,
+                            severity: 'info'
+                        })));
+                    
+                    if (notesError) {
+                        console.error('⚠️ خطأ في حفظ الملاحظات:', notesError);
+                    }
+                }
+            } catch (error) {
+                console.error('❌ فشل الحفظ في قاعدة البيانات:', error);
+                throw error;
             }
         }
 
