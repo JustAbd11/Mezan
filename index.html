@@ -6,7 +6,7 @@
     <title>نظام تعديل الميزانية</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <script src="https://unpkg.com/docx@7.8.2/build/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -402,74 +402,52 @@
 
                     try {
                         if (fileType === 'docx') {
-                            console.log('🔧 استخدام JSZip لفتح ملف Word...');
+                            console.log('🔧 استخدام Mammoth.js لقراءة Word...');
                             
-                            // استخدام JSZip بدلاً من PizZip
-                            const zip = await JSZip.loadAsync(content);
+                            // استخدام mammoth - الأبسط والأفضل
+                            const result = await mammoth.extractRawText({
+                                arrayBuffer: content
+                            });
                             
-                            const allFiles = Object.keys(zip.files);
-                            console.log('📁 عدد الملفات في ZIP:', allFiles.length);
-                            console.log('📁 جميع الملفات:', allFiles);
+                            extractedText = result.value;
                             
-                            // البحث عن document.xml
-                            let docXmlFile = zip.file("word/document.xml");
+                            console.log('✅ تم استخراج النص بنجاح!');
+                            console.log('📝 عدد الأحرف:', extractedText.length);
+                            console.log('📄 أول 200 حرف:', extractedText.substring(0, 200));
                             
-                            if (!docXmlFile) {
-                                // محاولة البحث بطريقة أخرى
-                                const docPath = allFiles.find(f => f.toLowerCase().endsWith('document.xml'));
-                                if (docPath) {
-                                    docXmlFile = zip.file(docPath);
-                                }
+                            if (result.messages && result.messages.length > 0) {
+                                console.log('⚠️ رسائل:', result.messages);
                             }
                             
-                            if (!docXmlFile) {
-                                console.error('❌ لم يتم العثور على document.xml');
-                                console.log('الملفات الموجودة:', allFiles);
-                                throw new Error('ملف Word تالف - لا يحتوي على document.xml');
-                            }
-                            
-                            console.log('✅ تم العثور على document.xml');
-                            
-                            // قراءة محتوى XML
-                            const xml = await docXmlFile.async("string");
-                            console.log('✅ تم قراءة XML - الحجم:', xml.length, 'حرف');
-                            
-                            // استخراج النصوص
-                            const textRegex = /<w:t[^>]*>([^<]+)<\/w:t>/g;
-                            const textMatches = [...xml.matchAll(textRegex)];
-                            
-                            console.log('📝 عدد النصوص المستخرجة:', textMatches.length);
-                            
-                            if (textMatches.length === 0) {
-                                console.warn('⚠️ الملف لا يحتوي على نصوص');
+                            if (!extractedText || extractedText.trim().length === 0) {
+                                console.warn('⚠️ الملف فارغ');
                                 extractedText = 'ملف فارغ - لا يحتوي على نصوص';
-                            } else {
-                                const texts = textMatches.map(match => match[1]);
-                                extractedText = texts.join(' ');
-                                console.log('✅ أول 150 حرف:', extractedText.substring(0, 150));
-                                console.log('✅ إجمالي الأحرف:', extractedText.length);
                             }
                             
                         } else if (fileType === 'xlsx') {
+                            console.log('📊 قراءة Excel...');
                             const workbook = XLSX.read(content, {type: 'array'});
                             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                             extractedText = XLSX.utils.sheet_to_txt(firstSheet);
-                            console.log('✅ تم قراءة Excel');
+                            console.log('✅ تم قراءة Excel بنجاح');
                         }
                         
                         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                         resolve();
+                        
                     } catch (error) {
                         console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-                        console.error('❌ خطأ:', error.message);
-                        console.error('التفاصيل:', error);
+                        console.error('❌ خطأ في القراءة:');
+                        console.error('الرسالة:', error.message);
+                        console.error('النوع:', error.name);
+                        console.error('التفاصيل الكاملة:', error);
                         console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                         reject(error);
                     }
                 };
 
                 reader.onerror = (error) => {
-                    console.error('❌ خطأ في القراءة:', error);
+                    console.error('❌ خطأ في FileReader:', error);
                     reject(error);
                 };
                 
