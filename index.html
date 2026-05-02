@@ -9,6 +9,7 @@
     <script src="https://unpkg.com/docx@7.8.2/build/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -181,6 +182,7 @@
                         <h3>📄 الملف المُعدّل</h3>
                         <div style="background: rgba(10, 25, 47, 0.6); border-radius: 10px; padding: 1rem; margin-bottom: 1.5rem;" id="fileInfo"></div>
                         <div class="download-buttons">
+                            <button class="btn-download" onclick="downloadPdf()" style="background: linear-gradient(135deg, #64ffda 0%, #4ecdc4 100%); color: #0a192f; font-weight: 700;">📕 تحميل PDF (موصى به)</button>
                             <button class="btn-download" onclick="downloadWord()">📝 تحميل Word</button>
                             <button class="btn-download" onclick="downloadExcel()" id="btnExcel" style="display:none;">📊 تحميل Excel</button>
                         </div>
@@ -189,7 +191,8 @@
                     <div class="result-card">
                         <h3>📋 ملف الملاحظات</h3>
                         <div class="notes-list" id="notesList"></div>
-                        <button class="btn-download" onclick="downloadNotesWord()" style="margin-top: 1rem;">📝 تحميل الملاحظات</button>
+                        <button class="btn-download" onclick="downloadNotesPdf()" style="margin-top: 1rem; background: linear-gradient(135deg, #64ffda 0%, #4ecdc4 100%); color: #0a192f; font-weight: 700;">📕 تحميل الملاحظات PDF</button>
+                        <button class="btn-download" onclick="downloadNotesWord()">📝 تحميل الملاحظات Word</button>
                     </div>
                 </div>
                 <button class="btn" style="width: auto; margin: 2rem auto; display: block; padding: 1rem 2rem;" onclick="resetUpload()">رفع ملف جديد</button>
@@ -409,6 +412,80 @@
             }
         }
 
+        async function downloadPdf() {
+            const { jsPDF } = window.jspdf;
+            
+            // إنشاء PDF بحجم A4
+            const doc = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: 'a4'
+            });
+
+            let text = extractedText || 'لا يوجد محتوى';
+            
+            // تطبيق التصحيحات
+            text = text.replace(/الميزانيه/g, 'الميزانية');
+            text = text.replace(/الاجمالي/g, 'الإجمالي');
+            text = text.replace(/المصاريف/g, 'المصروفات');
+            
+            // تقسيم النص إلى أسطر
+            const lines = text.split(/[\n\r]+/).filter(line => line.trim());
+            
+            // إعدادات الصفحة
+            const pageWidth = 210; // A4 width in mm
+            const pageHeight = 297; // A4 height in mm
+            const margin = 20;
+            const lineHeight = 7;
+            let y = margin;
+            
+            // خط عربي (يدعم العربي جزئياً)
+            doc.setFont('helvetica');
+            doc.setFontSize(11);
+            
+            // إضافة العنوان
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.text(currentFileName + '_معدل', pageWidth - margin, y, { align: 'right' });
+            y += lineHeight * 2;
+            
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'normal');
+            
+            // إضافة النصوص
+            lines.forEach((line, index) => {
+                if (y > pageHeight - margin) {
+                    doc.addPage();
+                    y = margin;
+                }
+                
+                const trimmedLine = line.trim();
+                if (trimmedLine) {
+                    // محاولة دعم العربي بعكس النص
+                    const reversedLine = trimmedLine.split('').reverse().join('');
+                    
+                    // تقسيم السطر إذا كان طويل
+                    const maxWidth = pageWidth - (2 * margin);
+                    const textLines = doc.splitTextToSize(reversedLine, maxWidth);
+                    
+                    textLines.forEach(textLine => {
+                        if (y > pageHeight - margin) {
+                            doc.addPage();
+                            y = margin;
+                        }
+                        
+                        // كتابة من اليمين
+                        doc.text(textLine, pageWidth - margin, y, { align: 'right' });
+                        y += lineHeight;
+                    });
+                }
+            });
+            
+            // حفظ الملف
+            doc.save(`${currentFileName}_معدل.pdf`);
+            console.log('✅ تم تحميل PDF بنجاح');
+        }
+
         async function downloadWord() {
             const { Document, Paragraph, TextRun, AlignmentType } = docx;
             
@@ -506,6 +583,50 @@
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'الميزانية');
             XLSX.writeFile(wb, `${currentFileName}_معدل.xlsx`);
+        }
+
+        async function downloadNotesPdf() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            const pageWidth = 210;
+            const margin = 20;
+            let y = margin;
+            
+            // العنوان
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            const title = 'ملف الملاحظات'.split('').reverse().join('');
+            doc.text(title, pageWidth - margin, y, { align: 'right' });
+            y += 10;
+            
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'normal');
+            
+            if (currentNotes.length === 0) {
+                const noErrors = 'لا توجد أخطاء'.split('').reverse().join('');
+                doc.text(noErrors, pageWidth - margin, y, { align: 'right' });
+            } else {
+                currentNotes.forEach((note, i) => {
+                    if (y > 270) {
+                        doc.addPage();
+                        y = margin;
+                    }
+                    
+                    const noteText = `${i + 1}. ${note.type}: ${note.message}`;
+                    const reversedNote = noteText.split('').reverse().join('');
+                    
+                    const lines = doc.splitTextToSize(reversedNote, pageWidth - (2 * margin));
+                    lines.forEach(line => {
+                        doc.text(line, pageWidth - margin, y, { align: 'right' });
+                        y += 7;
+                    });
+                    y += 3;
+                });
+            }
+            
+            doc.save(`${currentFileName}_ملاحظات.pdf`);
+            console.log('✅ تم تحميل ملاحظات PDF');
         }
 
         async function downloadNotesWord() {
