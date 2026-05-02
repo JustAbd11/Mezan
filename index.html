@@ -237,35 +237,51 @@
             loginBtn.textContent = 'جاري التحقق...';
 
             try {
-                // البحث عن المستخدم
+                console.log('🔍 محاولة تسجيل الدخول:', username);
+                
+                // البحث عن المستخدم - بدون فلتر is_active أولاً
                 const { data: admins, error } = await supabaseClient
                     .from('admins')
                     .select('*')
-                    .eq('username', username)
-                    .eq('is_active', true)
-                    .single();
+                    .eq('username', username);
 
-                if (error || !admins) {
+                console.log('📊 نتيجة البحث:', { admins, error });
+
+                if (error) {
+                    console.error('❌ خطأ من Supabase:', error);
+                    throw new Error('خطأ في الاتصال بقاعدة البيانات: ' + error.message);
+                }
+
+                if (!admins || admins.length === 0) {
                     throw new Error('اسم المستخدم غير موجود');
                 }
 
+                const user = admins[0];
+
+                // التحقق من أن الحساب نشط
+                if (!user.is_active) {
+                    throw new Error('هذا الحساب غير نشط');
+                }
+
                 // التحقق من كلمة المرور
-                if (admins.password_hash !== password) {
+                if (user.password_hash !== password) {
                     throw new Error('كلمة المرور غير صحيحة');
                 }
 
-                currentUser = admins;
+                console.log('✅ تم تسجيل الدخول بنجاح');
+                currentUser = user;
                 document.getElementById('loginScreen').style.display = 'none';
                 document.getElementById('dashboard').style.display = 'block';
 
             } catch (error) {
+                console.error('❌ خطأ في تسجيل الدخول:', error);
                 const errorMsg = document.getElementById('errorMessage');
                 errorMsg.textContent = error.message;
                 errorMsg.style.display = 'block';
                 
                 setTimeout(() => {
                     errorMsg.style.display = 'none';
-                }, 3000);
+                }, 5000);
             } finally {
                 loginBtn.disabled = false;
                 loginBtn.textContent = 'تسجيل الدخول';
