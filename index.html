@@ -392,35 +392,62 @@
 
                 reader.onload = async function(e) {
                     const content = e.target.result;
+                    
+                    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                    console.log('📂 معلومات الملف:');
+                    console.log('الاسم:', file.name);
+                    console.log('النوع:', fileType);
+                    console.log('الحجم:', file.size, 'بايت');
+                    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
                     try {
                         if (fileType === 'docx') {
+                            console.log('🔧 محاولة فتح ملف Word...');
                             const zip = new PizZip(content);
                             
-                            console.log('📁 ملفات داخل ZIP:', Object.keys(zip.files));
+                            const allFiles = Object.keys(zip.files);
+                            console.log('📁 عدد الملفات في ZIP:', allFiles.length);
+                            console.log('📁 أول 10 ملفات:', allFiles.slice(0, 10));
                             
-                            // محاولة القراءة بطريقة مختلفة
-                            let xml = '';
+                            // البحث عن document.xml بطرق مختلفة
+                            let docXmlPath = null;
                             
                             if (zip.files["word/document.xml"]) {
-                                xml = await zip.files["word/document.xml"].async("string");
+                                docXmlPath = "word/document.xml";
                             } else {
-                                throw new Error('الملف لا يحتوي على document.xml');
+                                // البحث في كل الملفات
+                                docXmlPath = allFiles.find(f => 
+                                    f.toLowerCase().endsWith('document.xml')
+                                );
                             }
+                            
+                            console.log('🔍 مسار document.xml:', docXmlPath);
+                            
+                            if (!docXmlPath) {
+                                console.error('❌ لم يتم العثور على document.xml');
+                                console.log('جميع الملفات:', allFiles);
+                                throw new Error('ملف Word تالف - لا يحتوي على document.xml');
+                            }
+                            
+                            // قراءة XML
+                            const xml = await zip.files[docXmlPath].async("string");
+                            console.log('✅ تم قراءة XML - الحجم:', xml.length, 'حرف');
                             
                             // استخراج النصوص
                             const textRegex = /<w:t[^>]*>([^<]+)<\/w:t>/g;
                             const textMatches = [...xml.matchAll(textRegex)];
                             
+                            console.log('📝 عدد النصوص:', textMatches.length);
+                            
                             if (textMatches.length === 0) {
-                                console.warn('⚠️ لم يتم العثور على نصوص في الملف');
-                                extractedText = 'ملف فارغ أو لا يحتوي على نصوص';
+                                console.warn('⚠️ الملف لا يحتوي على نصوص');
+                                extractedText = 'ملف فارغ - لا يحتوي على نصوص';
                             } else {
                                 const texts = textMatches.map(match => match[1]);
                                 extractedText = texts.join(' ');
-                                console.log('✅ تم استخراج', textMatches.length, 'نص');
+                                console.log('✅ أول 100 حرف:', extractedText.substring(0, 100));
+                                console.log('✅ إجمالي:', extractedText.length, 'حرف');
                             }
-                            console.log('✅ تم استخراج النص:', extractedText.length, 'حرف');
                             
                         } else if (fileType === 'xlsx') {
                             const workbook = XLSX.read(content, {type: 'array'});
@@ -431,11 +458,18 @@
                         
                         resolve();
                     } catch (error) {
+                        console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                        console.error('❌ خطأ:', error.message);
+                        console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                         reject(error);
                     }
                 };
 
-                reader.onerror = reject;
+                reader.onerror = (error) => {
+                    console.error('❌ خطأ في القراءة:', error);
+                    reject(error);
+                };
+                
                 reader.readAsArrayBuffer(file);
             });
         }
