@@ -181,8 +181,8 @@
             <div class="upload-section" id="uploadSection">
                 <div class="upload-icon">📊</div>
                 <h2>رفع ملف الميزانية</h2>
-                <p style="color: #8892b0; margin: 1rem 0;">Word (.docx) | Excel (.xlsx)</p>
-                <input type="file" class="file-input" id="fileInput" accept=".docx,.xlsx">
+                <p style="color: #8892b0; margin: 1rem 0;">Word (.docx) | Excel (.xlsx) | PDF (.pdf) | Text (.txt)</p>
+                <input type="file" class="file-input" id="fileInput" accept=".docx,.xlsx,.pdf,.txt">
                 <button class="btn" style="width: auto; padding: 1rem 3rem;" onclick="document.getElementById('fileInput').click()">اختيار ملف</button>
             </div>
 
@@ -291,8 +291,10 @@
             if (!file) return;
 
             const ext = file.name.split('.').pop().toLowerCase();
-            if (!['docx', 'xlsx'].includes(ext)) {
-                alert('الرجاء رفع ملف Word أو Excel فقط');
+            const allowedTypes = ['docx', 'xlsx', 'pdf', 'txt'];
+
+            if (!allowedTypes.includes(ext)) {
+                alert('الرجاء رفع ملف Word, Excel, PDF, أو Text فقط');
                 return;
             }
 
@@ -308,8 +310,12 @@
                 try {
                     if (fileType === 'docx') {
                         await processWordFile(file);
-                    } else {
+                    } else if (fileType === 'xlsx') {
                         await processExcelFile(file);
+                    } else if (fileType === 'pdf') {
+                        await processPdfFile(file);
+                    } else if (fileType === 'txt') {
+                        await processTextFile(file);
                     }
                     await saveToDatabase();
                     showResults();
@@ -333,12 +339,14 @@
                 const fileList = Object.keys(zip.files);
                 console.log('📁 ملفات داخل DOCX:', fileList);
 
-                // Find document.xml - it might be in different locations
+                // Find document.xml - check all possible locations
                 let docXmlPath = null;
                 const possiblePaths = [
                     'word/document.xml',
-                    'word/document2.xml',
-                    'document.xml'
+                    'word/document2.xml', 
+                    'document.xml',
+                    'xl/workbook.xml',
+                    'ppt/slides/slide1.xml'
                 ];
 
                 for (const path of possiblePaths) {
@@ -348,9 +356,29 @@
                     }
                 }
 
+                // If no document.xml found, try to find any XML file with text content
                 if (!docXmlPath) {
-                    console.error('❌ ملفات موجودة:', fileList);
-                    throw new Error('لم يتم العثور على ملف document.xml داخل ملف Word. تأكد أن الملف صالح.');
+                    // Look for any .xml file that might contain text
+                    for (const path of fileList) {
+                        if (path.endsWith('.xml') && !path.includes('_rels') && !path.includes('theme')) {
+                            console.log('🔍 محاولة قراءة:', path);
+                            try {
+                                const content = await zip.file(path).async('text');
+                                if (content.includes('<w:t') || content.includes('<a:t') || content.includes('<t>')) {
+                                    docXmlPath = path;
+                                    console.log('✅ تم العثور على نص في:', path);
+                                    break;
+                                }
+                            } catch (e) {
+                                // Continue searching
+                            }
+                        }
+                    }
+                }
+
+                if (!docXmlPath) {
+                    console.error('❌ جميع الملفات:', fileList);
+                    throw new Error('لم يتم العثور على ملف نصي داخل ملف Word. الملف قد يكون تالفاً أو غير صالح.\nالملفات الموجودة: ' + fileList.join(', '));
                 }
 
                 // Get the document.xml content
@@ -361,13 +389,33 @@
                 const parser = new DOMParser();
                 const xmlDoc = parser.parseFromString(docXml, 'application/xml');
 
-                // Extract all text content from w:t elements
-                const textElements = xmlDoc.getElementsByTagName('w:t');
+                // Extract all text content - try different tags
+                let textElements = xmlDoc.getElementsByTagName('w:t');
+                if (textElements.length === 0) {
+                    textElements = xmlDoc.getElementsByTagName('a:t');
+                }
+                if (textElements.length === 0) {
+                    textElements = xmlDoc.getElementsByTagName('t');
+                }
+
                 let fullText = '';
                 for (let el of textElements) {
                     fullText += el.textContent + ' ';
                 }
+
+                // If still no text, try to extract from XML string directly
+                if (!fullText.trim()) {
+                    const textMatches = docXml.match(/>([^<]{2,})</g);
+                    if (textMatches) {
+                        fullText = textMatches.map(m => m.replace(/[><]/g, '')).join(' ');
+                    }
+                }
+
                 extractedText = fullText.trim();
+
+                if (!extractedText) {
+                    throw new Error('لم يتم استخراج أي نص من الملف. الملف قد يكون فارغاً أو تالفاً.');
+                }
 
                 console.log('✅ Word extracted:', extractedText.length, 'chars');
                 console.log('📝 نص عينة:', extractedText.substring(0, 200));
@@ -433,6 +481,20 @@
                 };
                 reader.readAsArrayBuffer(file);
             });
+        }
+
+        async function processPdfFile(file) {
+            const text = await file.text();
+            extractedText = text;
+            console.log('✅ PDF/Text:', extractedText.length, 'chars');
+            analyzeText(extractedText);
+        }
+
+        async function processTextFile(file) {
+            const text = await file.text();
+            extractedText = text;
+            console.log('✅ Text:', extractedText.length, 'chars');
+            analyzeText(extractedText);
         }
 
         function analyzeText(text) {
@@ -560,11 +622,27 @@
 
                     // Find document.xml path
                     let docXmlPath = null;
-                    const possiblePaths = ['word/document.xml', 'word/document2.xml', 'document.xml'];
+                    const possiblePaths = [
+                        'word/document.xml',
+                        'word/document2.xml',
+                        'document.xml'
+                    ];
+
                     for (const path of possiblePaths) {
                         if (zip.file(path)) {
                             docXmlPath = path;
                             break;
+                        }
+                    }
+
+                    // If not found in common paths, search all XML files
+                    if (!docXmlPath) {
+                        const fileList = Object.keys(zip.files);
+                        for (const path of fileList) {
+                            if (path.endsWith('.xml') && !path.includes('_rels') && !path.includes('theme')) {
+                                docXmlPath = path;
+                                break;
+                            }
                         }
                     }
 
@@ -587,7 +665,8 @@
 
                 } catch (error) {
                     console.error('❌ خطأ في إنشاء Word:', error);
-                    alert('حدث خطأ في إنشاء ملف Word: ' + error.message);
+                    // Fallback to creating new document
+                    await createNewWordDoc();
                 }
             } else {
                 // Fallback: create new Word document
