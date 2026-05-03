@@ -228,6 +228,7 @@
         let originalDocXml = '';
         let modifiedDocXml = '';
         let originalFileBlob = null;
+        let isValidDocx = false;
 
         function initSupabase() {
             try {
@@ -301,6 +302,7 @@
             currentFileName = file.name.substring(0, file.name.lastIndexOf('.'));
             fileType = ext;
             originalFileBlob = file;
+            isValidDocx = false;
 
             document.getElementById('uploadSection').style.display = 'none';
             document.getElementById('processingSection').style.display = 'block';
@@ -358,13 +360,13 @@
 
                 // If no document.xml found, try to find any XML file with text content
                 if (!docXmlPath) {
-                    // Look for any .xml file that might contain text
+                    console.log('🔍 البحث عن أي ملف XML يحتوي على نص...');
                     for (const path of fileList) {
                         if (path.endsWith('.xml') && !path.includes('_rels') && !path.includes('theme')) {
                             console.log('🔍 محاولة قراءة:', path);
                             try {
                                 const content = await zip.file(path).async('text');
-                                if (content.includes('<w:t') || content.includes('<a:t') || content.includes('<t>')) {
+                                if (content.includes('<w:t') || content.includes('<a:t') || content.includes('<t>') || content.length > 100) {
                                     docXmlPath = path;
                                     console.log('✅ تم العثور على نص في:', path);
                                     break;
@@ -376,9 +378,38 @@
                     }
                 }
 
+                // If still no document found, try to extract text from ALL xml files
+                if (!docXmlPath) {
+                    console.log('🔍 محاولة استخراج النص من جميع ملفات XML...');
+                    let allText = '';
+                    for (const path of fileList) {
+                        if (path.endsWith('.xml')) {
+                            try {
+                                const content = await zip.file(path).async('text');
+                                // Extract text between tags
+                                const textMatches = content.match(/>([^<>]{2,})</g);
+                                if (textMatches) {
+                                    const texts = textMatches.map(m => m.replace(/[><]/g, '')).filter(t => t.trim() && !t.startsWith('<?xml') && !t.includes('xmlns'));
+                                    allText += texts.join(' ') + ' ';
+                                }
+                            } catch (e) {
+                                // Continue
+                            }
+                        }
+                    }
+
+                    if (allText.trim()) {
+                        extractedText = allText.trim();
+                        console.log('✅ تم استخراج النص من XML:', extractedText.length, 'chars');
+                        isValidDocx = false; // Not a valid Word doc, but we have text
+                        analyzeText(extractedText);
+                        return;
+                    }
+                }
+
                 if (!docXmlPath) {
                     console.error('❌ جميع الملفات:', fileList);
-                    throw new Error('لم يتم العثور على ملف نصي داخل ملف Word. الملف قد يكون تالفاً أو غير صالح.\nالملفات الموجودة: ' + fileList.join(', '));
+                    throw new Error('لم يتم العثور على أي نص داخل الملف. الملف قد يكون تالفاً أو غير صالح.\n\nالملفات الموجودة: ' + fileList.join(', ') + '\n\nالحل: جرب رفع الملف كـ .txt أو أنشئ ملف Word جديد');
                 }
 
                 // Get the document.xml content
@@ -389,7 +420,7 @@
                 const parser = new DOMParser();
                 const xmlDoc = parser.parseFromString(docXml, 'application/xml');
 
-                // Extract all text content - try different tags
+                // Extract all text content from w:t elements
                 let textElements = xmlDoc.getElementsByTagName('w:t');
                 if (textElements.length === 0) {
                     textElements = xmlDoc.getElementsByTagName('a:t');
@@ -420,8 +451,13 @@
                 console.log('✅ Word extracted:', extractedText.length, 'chars');
                 console.log('📝 نص عينة:', extractedText.substring(0, 200));
 
-                // Apply corrections to the XML
-                modifiedDocXml = applyCorrectionsToXml(docXml);
+                // Check if this is a valid Word document
+                isValidDocx = docXmlPath === 'word/document.xml' || docXmlPath.includes('word/');
+
+                if (isValidDocx) {
+                    // Apply corrections to the XML
+                    modifiedDocXml = applyCorrectionsToXml(docXml);
+                }
 
                 // Analyze text for notes
                 analyzeText(fullText);
@@ -532,6 +568,13 @@
                 type: 'تنسيق',
                 message: 'تم تطبيق Bold على العناوين'
             });
+
+            if (!isValidDocx && fileType === 'docx') {
+                currentNotes.push({
+                    type: 'تحذير',
+                    message: 'الملف الأصلي ليس Word صالح. تم إنشاء ملف جديد بالتصحيحات.'
+                });
+            }
         }
 
         async function saveToDatabase() {
@@ -589,10 +632,12 @@
 
             document.getElementById('btnExcel').style.display = fileType === 'xlsx' ? 'flex' : 'none';
 
+            const statusText = isValidDocx ? '✓ تم (ملف Word صالح)' : '⚠️ تم (ملف غير صالح - تم إنشاء ملف جديد)';
+
             document.getElementById('fileInfo').innerHTML = `
                 <strong>الملف:</strong> ${currentFileName}_معدل<br>
                 <strong>الأحرف:</strong> ${extractedText.length}<br>
-                <strong>الحالة:</strong> <span style="color: #64ffda;">✓ تم</span>
+                <strong>الحالة:</strong> <span style="color: ${isValidDocx ? '#64ffda' : '#ffd700'};">${statusText}</span>
             `;
 
             // Show preview
@@ -614,7 +659,7 @@
         }
 
         async function downloadWord() {
-            if (fileType === 'docx' && modifiedDocXml && originalFileBlob) {
+            if (fileType === 'docx' && isValidDocx && modifiedDocXml && originalFileBlob) {
                 try {
                     // Read original file again to get fresh ZIP
                     const arrayBuffer = await originalFileBlob.arrayBuffer();
@@ -918,6 +963,7 @@
             originalDocXml = '';
             modifiedDocXml = '';
             originalFileBlob = null;
+            isValidDocx = false;
         }
 
         window.addEventListener('DOMContentLoaded', initSupabase);
