@@ -227,6 +227,7 @@
         let uploadedFileId = null;
         let originalDocXml = '';
         let modifiedDocXml = '';
+        let originalFileBlob = null;
 
         function initSupabase() {
             try {
@@ -297,6 +298,7 @@
 
             currentFileName = file.name.substring(0, file.name.lastIndexOf('.'));
             fileType = ext;
+            originalFileBlob = file;
 
             document.getElementById('uploadSection').style.display = 'none';
             document.getElementById('processingSection').style.display = 'block';
@@ -320,35 +322,66 @@
         });
 
         async function processWordFile(file) {
-            // Read the DOCX file as array buffer
-            const arrayBuffer = await file.arrayBuffer();
+            try {
+                // Read the DOCX file as array buffer
+                const arrayBuffer = await file.arrayBuffer();
 
-            // Use JSZip to read the DOCX (which is a ZIP file)
-            const zip = await JSZip.loadAsync(arrayBuffer);
+                // Use JSZip to read the DOCX (which is a ZIP file)
+                const zip = await JSZip.loadAsync(arrayBuffer);
 
-            // Get the document.xml content
-            const docXml = await zip.file('word/document.xml').async('text');
-            originalDocXml = docXml;
+                // List all files in the ZIP for debugging
+                const fileList = Object.keys(zip.files);
+                console.log('📁 ملفات داخل DOCX:', fileList);
 
-            // Extract text for analysis
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(docXml, 'application/xml');
+                // Find document.xml - it might be in different locations
+                let docXmlPath = null;
+                const possiblePaths = [
+                    'word/document.xml',
+                    'word/document2.xml',
+                    'document.xml'
+                ];
 
-            // Extract all text content
-            const textElements = xmlDoc.getElementsByTagName('w:t');
-            let fullText = '';
-            for (let el of textElements) {
-                fullText += el.textContent + ' ';
+                for (const path of possiblePaths) {
+                    if (zip.file(path)) {
+                        docXmlPath = path;
+                        break;
+                    }
+                }
+
+                if (!docXmlPath) {
+                    console.error('❌ ملفات موجودة:', fileList);
+                    throw new Error('لم يتم العثور على ملف document.xml داخل ملف Word. تأكد أن الملف صالح.');
+                }
+
+                // Get the document.xml content
+                const docXml = await zip.file(docXmlPath).async('text');
+                originalDocXml = docXml;
+
+                // Extract text for analysis
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(docXml, 'application/xml');
+
+                // Extract all text content from w:t elements
+                const textElements = xmlDoc.getElementsByTagName('w:t');
+                let fullText = '';
+                for (let el of textElements) {
+                    fullText += el.textContent + ' ';
+                }
+                extractedText = fullText.trim();
+
+                console.log('✅ Word extracted:', extractedText.length, 'chars');
+                console.log('📝 نص عينة:', extractedText.substring(0, 200));
+
+                // Apply corrections to the XML
+                modifiedDocXml = applyCorrectionsToXml(docXml);
+
+                // Analyze text for notes
+                analyzeText(fullText);
+
+            } catch (error) {
+                console.error('❌ خطأ في معالجة ملف Word:', error);
+                throw new Error('فشل في قراءة ملف Word: ' + error.message);
             }
-            extractedText = fullText.trim();
-
-            console.log('✅ Word extracted:', extractedText.length, 'chars');
-
-            // Apply corrections to the XML
-            modifiedDocXml = applyCorrectionsToXml(docXml);
-
-            // Analyze text for notes
-            analyzeText(fullText);
         }
 
         function applyCorrectionsToXml(xmlString) {
@@ -360,12 +393,9 @@
                 { wrong: 'الاجمالي', correct: 'الإجمالي' },
                 { wrong: 'المصاريف', correct: 'المصروفات' },
                 { wrong: 'الايرادات', correct: 'الإيرادات' },
-                { wrong: 'الفصول', correct: 'الفصول' },
                 { wrong: 'الموازنه', correct: 'الموازنة' },
-                { wrong: 'الاعتمادات', correct: 'الاعتمادات' },
                 { wrong: 'التقديريه', correct: 'التقديرية' },
-                { wrong: 'الفعليه', correct: 'الفعلية' },
-                { wrong: 'الفرق', correct: 'الفرق' }
+                { wrong: 'الفعليه', correct: 'الفعلية' }
             ];
 
             corrections.forEach(corr => {
@@ -522,110 +552,139 @@
         }
 
         async function downloadWord() {
-            if (fileType === 'docx' && modifiedDocXml) {
-                // Reconstruct the DOCX file with corrected XML
-                const arrayBuffer = await document.getElementById('fileInput').files[0].arrayBuffer();
-                const zip = await JSZip.loadAsync(arrayBuffer);
-
-                // Replace document.xml with corrected version
-                zip.file('word/document.xml', modifiedDocXml);
-
-                // Generate new DOCX
-                const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-                saveAs(blob, `${currentFileName}_معدل.docx`);
-                console.log('✅ تم تحميل Word المعدل بنجاح');
-            } else {
-                // Fallback for Excel or if no modified XML
-                const { Document, Paragraph, TextRun, AlignmentType } = docx;
-
-                let text = extractedText || 'لا يوجد محتوى';
-
-                const corrections = [
-                    { wrong: 'الميزانيه', correct: 'الميزانية' },
-                    { wrong: 'الاجمالي', correct: 'الإجمالي' },
-                    { wrong: 'المصاريف', correct: 'المصروفات' },
-                    { wrong: 'الايرادات', correct: 'الإيرادات' },
-                    { wrong: 'الموازنه', correct: 'الموازنة' },
-                    { wrong: 'التقديريه', correct: 'التقديرية' },
-                    { wrong: 'الفعليه', correct: 'الفعلية' }
-                ];
-
-                corrections.forEach(c => {
-                    text = text.replace(new RegExp(c.wrong, 'g'), c.correct);
-                });
-
-                const lines = text.split(/[\n\r]+/).filter(line => line.trim());
-                const paragraphs = [];
-
-                if (lines.length === 0) {
-                    paragraphs.push(
-                        new Paragraph({
-                            children: [
-                                new TextRun({
-                                    text: "محتوى الملف",
-                                    font: "Arial",
-                                    size: 22,
-                                    rightToLeft: true
-                                })
-                            ],
-                            alignment: AlignmentType.RIGHT
-                        })
-                    );
-                } else {
-                    lines.forEach(line => {
-                        const trimmedLine = line.trim();
-                        if (trimmedLine) {
-                            const isHeading = 
-                                trimmedLine.includes('الباب') || 
-                                trimmedLine.includes('الفصل') ||
-                                trimmedLine.includes('الميزانية') ||
-                                trimmedLine.includes('الإجمالي') ||
-                                trimmedLine.length < 60;
-
-                            paragraphs.push(
-                                new Paragraph({
-                                    children: [
-                                        new TextRun({
-                                            text: trimmedLine,
-                                            font: "Arial",
-                                            size: 22,
-                                            bold: isHeading,
-                                            rightToLeft: true
-                                        })
-                                    ],
-                                    alignment: AlignmentType.RIGHT,
-                                    rightToLeft: true,
-                                    spacing: { after: 100 }
-                                })
-                            );
-                        }
-                    });
-                }
-
-                const doc = new Document({
-                    sections: [{
-                        properties: {
-                            page: {
-                                margin: {
-                                    top: 1000,
-                                    right: 2500,
-                                    bottom: 1000,
-                                    left: 1000
-                                }
-                            }
-                        },
-                        children: paragraphs
-                    }]
-                });
-
+            if (fileType === 'docx' && modifiedDocXml && originalFileBlob) {
                 try {
-                    const blob = await docx.Packer.toBlob(doc);
+                    // Read original file again to get fresh ZIP
+                    const arrayBuffer = await originalFileBlob.arrayBuffer();
+                    const zip = await JSZip.loadAsync(arrayBuffer);
+
+                    // Find document.xml path
+                    let docXmlPath = null;
+                    const possiblePaths = ['word/document.xml', 'word/document2.xml', 'document.xml'];
+                    for (const path of possiblePaths) {
+                        if (zip.file(path)) {
+                            docXmlPath = path;
+                            break;
+                        }
+                    }
+
+                    if (!docXmlPath) {
+                        throw new Error('لم يتم العثور على ملف document.xml');
+                    }
+
+                    // Replace document.xml with corrected version
+                    zip.file(docXmlPath, modifiedDocXml);
+
+                    // Generate new DOCX
+                    const blob = await zip.generateAsync({ 
+                        type: 'blob', 
+                        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                        compression: 'DEFLATE'
+                    });
+
                     saveAs(blob, `${currentFileName}_معدل.docx`);
-                    console.log('✅ تم تحميل Word بنجاح');
+                    console.log('✅ تم تحميل Word المعدل بنجاح');
+
                 } catch (error) {
                     console.error('❌ خطأ في إنشاء Word:', error);
-                    alert('حدث خطأ في إنشاء ملف Word');
+                    alert('حدث خطأ في إنشاء ملف Word: ' + error.message);
                 }
+            } else {
+                // Fallback: create new Word document
+                await createNewWordDoc();
+            }
+        }
+
+        async function createNewWordDoc() {
+            const { Document, Paragraph, TextRun, AlignmentType } = docx;
+
+            let text = extractedText || 'لا يوجد محتوى';
+
+            const corrections = [
+                { wrong: 'الميزانيه', correct: 'الميزانية' },
+                { wrong: 'الاجمالي', correct: 'الإجمالي' },
+                { wrong: 'المصاريف', correct: 'المصروفات' },
+                { wrong: 'الايرادات', correct: 'الإيرادات' },
+                { wrong: 'الموازنه', correct: 'الموازنة' },
+                { wrong: 'التقديريه', correct: 'التقديرية' },
+                { wrong: 'الفعليه', correct: 'الفعلية' }
+            ];
+
+            corrections.forEach(c => {
+                text = text.replace(new RegExp(c.wrong, 'g'), c.correct);
+            });
+
+            const lines = text.split(/[\n\r]+/).filter(line => line.trim());
+            const paragraphs = [];
+
+            if (lines.length === 0) {
+                paragraphs.push(
+                    new Paragraph({
+                        children: [
+                            new TextRun({
+                                text: "محتوى الملف",
+                                font: "Arial",
+                                size: 22,
+                                rightToLeft: true
+                            })
+                        ],
+                        alignment: AlignmentType.RIGHT
+                    })
+                );
+            } else {
+                lines.forEach(line => {
+                    const trimmedLine = line.trim();
+                    if (trimmedLine) {
+                        const isHeading = 
+                            trimmedLine.includes('الباب') || 
+                            trimmedLine.includes('الفصل') ||
+                            trimmedLine.includes('الميزانية') ||
+                            trimmedLine.includes('الإجمالي') ||
+                            trimmedLine.length < 60;
+
+                        paragraphs.push(
+                            new Paragraph({
+                                children: [
+                                    new TextRun({
+                                        text: trimmedLine,
+                                        font: "Arial",
+                                        size: 22,
+                                        bold: isHeading,
+                                        rightToLeft: true
+                                    })
+                                ],
+                                alignment: AlignmentType.RIGHT,
+                                rightToLeft: true,
+                                spacing: { after: 100 }
+                            })
+                        );
+                    }
+                });
+            }
+
+            const doc = new Document({
+                sections: [{
+                    properties: {
+                        page: {
+                            margin: {
+                                top: 1000,
+                                right: 2500,
+                                bottom: 1000,
+                                left: 1000
+                            }
+                        }
+                    },
+                    children: paragraphs
+                }]
+            });
+
+            try {
+                const blob = await docx.Packer.toBlob(doc);
+                saveAs(blob, `${currentFileName}_معدل.docx`);
+                console.log('✅ تم تحميل Word بنجاح');
+            } catch (error) {
+                console.error('❌ خطأ في إنشاء Word:', error);
+                alert('حدث خطأ في إنشاء ملف Word');
             }
         }
 
@@ -779,6 +838,7 @@
             currentNotes = [];
             originalDocXml = '';
             modifiedDocXml = '';
+            originalFileBlob = null;
         }
 
         window.addEventListener('DOMContentLoaded', initSupabase);
